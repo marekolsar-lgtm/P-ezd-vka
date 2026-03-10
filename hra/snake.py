@@ -130,10 +130,15 @@ def place_food(snake):
 
 
 def run_game(screen, clock, font, shock_level: int) -> int:
-    """Spustí jednu hru; vrátí skóre po smrti
+    """Spustí jednu hru; vrátí skóre po smrti.
 
     shock_level indicates level of shockwave ability; if >0 the player can
     trigger the effect by pressing SPACE.  Higher levels increase radius.
+
+    When the shockwave is activated it will collect any food within the
+    radius as if the snake had eaten it; the snake grows and the score goes
+    up accordingly.  This happens instantly and uses an internal
+    ``extra_growth`` counter to make the next move longer.
     """
     # počáteční pozice – vždy délka 1
     snake = [(WIDTH // 2, HEIGHT // 2)]
@@ -144,6 +149,9 @@ def run_game(screen, clock, font, shock_level: int) -> int:
     shock_cooldown = 0
     SHOCK_DURATION = 300  # how long the effect stays visible
     shock_time = 0
+
+    # extra growth to apply on next move (used when a shockwave collects food)
+    extra_growth = 0
 
     # radius depends on level (level 0 = no ability)
     base_radius_blocks = 2  # original radius when level==1 is 2 blocks
@@ -177,8 +185,9 @@ def run_game(screen, clock, font, shock_level: int) -> int:
                     dx = snake[0][0] - food[0]
                     dy = snake[0][1] - food[1]
                     if (dx * dx + dy * dy) <= shock_radius * shock_radius:
+                        # schedule a growth for the next move and reposition food
+                        extra_growth += 1
                         food = place_food(snake)
-                        # no pop: snake grows by keeping tail
         # decrement cooldown each frame
         if shock_cooldown > 0:
             shock_cooldown -= clock.get_time()
@@ -197,9 +206,14 @@ def run_game(screen, clock, font, shock_level: int) -> int:
             running = False
 
         if new_head == food:
+            # normal food consumption: grow by not popping tail
             food = place_food(snake)
         else:
-            snake.pop()
+            if extra_growth > 0:
+                # shockwave picked up a food earlier; apply growth
+                extra_growth -= 1
+            else:
+                snake.pop()
 
         score = len(snake) - 1
         score_surf = font.render(f"Score: {score}", True, WHITE)
