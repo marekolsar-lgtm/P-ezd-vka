@@ -117,16 +117,27 @@ def show_debuff_choice(screen, font):
     def apply_teleport(state):
         state["teleport"] = True
 
+    def apply_shrink(amount: int, state):
+        # shrink the snake by removing tail segments
+        state["shrink"] += amount
+
+    def apply_mirror(state):
+        # mirror the screen horizontally
+        state["mirror"] = True
+
     all_debuffs = [
         make_debuff("Speed x2", lambda s: apply_speed(2, s)),
         make_debuff("Speed x3", lambda s: apply_speed(3, s)),
         make_debuff("Speed x4", lambda s: apply_speed(4, s)),
+        make_debuff("Speed x5", lambda s: apply_speed(5, s)),
         make_debuff("Random turn", apply_random_turn),
         make_debuff("Foggy vision", apply_fog),
         make_debuff("Points ×0.5", lambda s: apply_points(0.5, s)),
         make_debuff("More obstacles", apply_more_obstacles),
         make_debuff("Moving obstacles", apply_moving_obstacles),
         make_debuff("Reverse controls", apply_reverse_controls),
+        make_debuff("Shrink snake", lambda s: apply_shrink(3, s)),
+        make_debuff("Mirror screen", apply_mirror),
         make_debuff("Score -20", apply_score_penalty),
         make_debuff("Teleport head", apply_teleport),
     ]
@@ -311,6 +322,8 @@ def run_game(screen, clock, font, points_level: int) -> int:
         "fog": False,
         "score_penalty": 0,
         "teleport": False,
+        "shrink": 0,
+        "mirror": False,
         "shield": False,
     }
     moving_obstacles = []  # list of dicts with {'pos': ..., 'dir': (...)}
@@ -399,6 +412,12 @@ def run_game(screen, clock, font, points_level: int) -> int:
             if state["teleport"]:
                 snake[0], _ = place_food(snake, occupied=list(occupied_positions()))
                 state["teleport"] = False
+
+            if state["shrink"] > 0:
+                for _ in range(state["shrink"]):
+                    if len(snake) > 1:
+                        snake.pop()
+                state["shrink"] = 0
 
         # apply random-turn debuff (occasionally twist direction)
         if state["random_turn"] and random.random() < 0.1:
@@ -531,6 +550,11 @@ def run_game(screen, clock, font, points_level: int) -> int:
             draw_block(screen, CYAN, shield_pos)
 
         screen.blit(score_surf, (10, 10))
+
+        # mirror screen debuff (harder to play when the world is flipped)
+        if state["mirror"]:
+            snapshot = screen.copy()
+            screen.blit(pygame.transform.flip(snapshot, True, False), (0, 0))
 
         pygame.display.flip()
         target_fps = max(1, int(FPS * state["speed_mult"]))
