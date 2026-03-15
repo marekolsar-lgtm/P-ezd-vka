@@ -1,31 +1,55 @@
-# Název projektu
+﻿# Název projektu
+snake
 
 ## Popis a cíl projektu
 Tento malý herní projekt implementuje klasickou hru Snake v Pythonu s
-rozšířením o sbírání mincí, dvěma druhy upgrade schopností ("shockwave" a
-bonus za rychlejší získávání coinů). Je určen pro výuku programování nebo
-jako jednoduchá zábavná ukázka práce s knihovnou pygame.
+pokročilejšími herními mechanikami (sbírání coinů, updaty, debuffy a štít).
+Je určen pro výuku programování a jako jednoduchá ukázka práce s knihovnou
+`pygame`.
 
 ## Funkcionalita programu
-Hra se skládá z těchto technických bloků:
+Hra obsahuje tyto hlavní bloky:
 
-- **Herní smyčka**: vykreslování plátna, zpracování událostí a aktualizace
+- **Herní smyčka**: vykreslování plátna, zpracování vstupu a aktualizace
   stavu hada.
-- **Snake logika**: pohyb, kolize s hranami a vlastním tělem, růst po sebrání
-  jídla.
-- **Coin systém**: skóre konvertované na měnu, která se ukládá v souboru.
-- **Shockwave upgrade**: opakovatelná schopnost s úrovněmi, která při
-  aktivaci sbírá jídlo v okolí. Úroveň se zvyšuje v menu, cena roste
-  lineárně, stav se ukládá do `upgrade.txt`.
-- **Coin upgrade**: opakovatelná úroveň, která zvyšuje množství
-  získaných coinů; cena roste lineárně, stav se ukládá do
-  `coin_upgrade.txt`.
-- **Menu**: umožňuje začít hru, koupit/upgradovat shockwave, resetovat mince
-  a úroveň nebo ukončit program.
+- **Snake logika**: pohyb, kolize s hranou okna, vlastním tělem a překážkami,
+  růst po sebrání jídla.
+- **Cíl**: dosáhnout 100 bodů (hra skončí s výhrou) a sbírat co nejvíce skóre.
+- **Coins / peníze**: skóre se převádí na coinů, které lze utrácet za
+  upgrady. Zůstatek se ukládá do souboru.
+- **Points upgrade**: zvyšuje počet bodů za každé snězené jídlo. Stav se
+  persistuje v `upgrade.txt`.
+- **Coin upgrade**: zvyšuje množství získaných peněz ze skóre. Stav se
+  persistuje v `coin_upgrade.txt`.
+- **Debuff systém**: každých 10 bodů hráč vybírá jednu ze tří skrytých karet.
+  Každá karta aplikuje náhodný debuff (např. zrychlení, obrácené ovládání,
+  mlha, více překážek, teleport, snížení délky hada apod.).
+- **Power‑up štít**: po sebrání jídla se s určitou pravděpodobností objeví
+  štít; ten jednou zabrání smrti kolizí.
+- **Překážky**: statické i (jako výsledek debuffu) pohyblivé překážky.
 
-(Stručně: uživatelské ovládání je realizováno přes klávesnice, data se
-persistují do několika jednoduchých textových souborů.)
+## Menu a ovládání
+V menu:
+
+- `Enter` – spustí hru
+- `Q` nebo `Esc` – ukončí program
+- `R` – resetuje zůstatek a obě úrovně upgradů (body + coiny)
+- `U` – vylepší bodový bonus (pokud máte dost coinů)
+- `C` – vylepší coinový bonus (pokud máte dost coinů)
+
+Ve hře:
+
+- šipky – pohyb
+- `Esc` – ukončení hry a návrat do menu
+
+## Persistovaná data
+V adresáři `snake/` se ukládají tyto soubory:
+
+- `balance.txt`: aktuální zůstatek coinů
+- `highscore.txt`: nejlepší dosažené skóre
+- `upgrade.txt`: úroveň bodového upgradu (0–6)
+- `coin_upgrade.txt`: úroveň coinového upgradu (0–6)
 
 ---
 
-*Dokumentace upravena podle uživatelského požadavku.*
+*Dokumentace aktualizována podle aktuální implementace.*
