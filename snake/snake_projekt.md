@@ -50,6 +50,4 @@ V adresáři `snake/` se ukládají tyto soubory:
 - `upgrade.txt`: úroveň bodového upgradu (0–6)
 - `coin_upgrade.txt`: úroveň coinového upgradu (0–6)
 
----
-
-*Dokumentace aktualizována podle aktuální implementace.*
+--

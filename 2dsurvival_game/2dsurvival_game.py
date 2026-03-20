@@ -9,7 +9,7 @@ pygame.init()
 # Konstanty
 WINDOW_WIDTH = 1024
 WINDOW_HEIGHT = 768
-TITLE = "Terraria Roguelike"
+TITLE = "Survival Game"
 FPS = 60
 
 # Barvy (použijeme pro textury, ale některé ponecháme pro záložní)
@@ -470,7 +470,17 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, self.width, self.height)
         self.vel_x = 0
         self.vel_y = 0
-        self.health = 3
+        
+        # Set different health based on enemy type
+        if self.enemy_type == 'walker':
+            self.health = 3
+        elif self.enemy_type == 'flying':
+            self.health = 2
+        elif self.enemy_type == 'shooter':
+            self.health = 4
+        else:
+            self.health = 3  # default fallback
+        
         self.facing_right = random.choice([True, False])
 
         # Vytvoření vzhledu
