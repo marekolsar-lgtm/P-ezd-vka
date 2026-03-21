@@ -13,7 +13,8 @@
 - **Ukončení**: `ESC` pro ukončení hry
 
 ### Hráč
-- **Zdraví**: Maximálně 5 životů
+- **Zdraví**: Maximálně 5 životů (zvyšuje se při dosažení nové úrovně)
+- **Úroveň a XP**: Hráč sbírá zkušenosti z nepřátel; po naplnění lišty XP získá novou úroveň, což zvýší maximální zdraví a plně ho vyléčí.
 - **Rychlost**: 5 pixelů za snímek
 - **Útok**: Meč s dosahem a cooldown systémem
 - **Inventář**: Klíče pro potenciální budoucí mechaniky
@@ -24,18 +25,21 @@ Hra obsahuje tři typy nepřátel s různými vlastnostmi:
 
 #### 1. Walker (Chodec) - Červený
 - **Zdraví**: 3 životy
+- **XP Hodnota**: 5 XP
 - **Chování**: Pronásleduje hráče přímočaře
 - **Rychlost**: 2 pixely za snímek
 - **Vzhled**: Červený čtverec s očima
 
 #### 2. Flying (Létající) - Fialový
 - **Zdraví**: 2 životy
+- **XP Hodnota**: 5 XP
 - **Chování**: Rychle se pohybuje směrem k hráči
 - **Rychlost**: 1 pixel za snímek (rychlejší reakce)
 - **Vzhled**: Fialový s křídly
 
 #### 3. Shooter (Střelec) - Oranžový
 - **Zdraví**: 4 životy
+- **XP Hodnota**: 10 XP
 - **Chování**: Pohybuje se pomalu a střílí projektily na hráče
 - **Rychlost**: 0.5 pixelu za snímek
 - **Vzhled**: Oranžový s hlaveňí
@@ -84,8 +88,9 @@ Hra obsahuje tři typy nepřátel s různými vlastnostmi:
 - **Projektily**: Střely od shooter nepřátel
 - **Imunita**: 30 snímků po zásahu
 
-### Skórovací systém
-- **Za zabití nepřítele**: +10 bodů
+### Skóre a Progrese
+- **Za zabití nepřítele**: +10 bodů do skóre a specifický počet XP do levelování
+- **Level up**: Při dosažení hranice XP se zvýší úroveň, maximální požadavek na další XP (x1.5), maximální zdraví (+1) a hráči je ihned doplněno veškeré zdraví.
 - **Žádný trest za smrt**: Hra se restartuje s novým dungeonem
 
 ## Technické detaily

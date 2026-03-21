@@ -2,6 +2,16 @@ import pygame
 import random
 import math
 import sys
+from typing import TypedDict, List, Tuple, cast
+
+class RoomDict(TypedDict):
+    x: int
+    y: int
+    width: int
+    height: int
+    grid_x: int
+    grid_y: int
+    doors: List[Tuple[int, int]]
 
 # Inicializace Pygame
 pygame.init()
@@ -225,7 +235,8 @@ class Player(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, self.width, self.height)
         self.vel_x = 0
         self.vel_y = 0
-        self.health = PLAYER_MAX_HEALTH
+        self.max_health = PLAYER_MAX_HEALTH
+        self.health = self.max_health
         self.attacking = False
         self.attack_timer = 0
         self.attack_cooldown = 0
@@ -236,6 +247,9 @@ class Player(pygame.sprite.Sprite):
         self.damage_boost_timer = 0
         self.keys = 0
         self.hit_cooldown = 0
+        self.xp = 0
+        self.level = 1
+        self.max_xp = 10
 
         # Animace
         self.animation_frames = {
@@ -455,7 +469,16 @@ class Player(pygame.sprite.Sprite):
             self.health = 0
 
     def heal(self, amount):
-        self.health = min(self.health + amount, PLAYER_MAX_HEALTH)
+        self.health = min(self.health + amount, self.max_health)
+
+    def add_xp(self, amount):
+        self.xp += amount
+        while self.xp >= self.max_xp:
+            self.xp -= self.max_xp
+            self.level += 1
+            self.max_xp = int(self.max_xp * 1.5)
+            self.max_health += 1
+            self.health = self.max_health
 
     def is_dead(self):
         return self.health <= 0
@@ -474,12 +497,16 @@ class Enemy(pygame.sprite.Sprite):
         # Set different health based on enemy type
         if self.enemy_type == 'walker':
             self.health = 3
+            self.xp_value = 5
         elif self.enemy_type == 'flying':
             self.health = 2
+            self.xp_value = 5
         elif self.enemy_type == 'shooter':
             self.health = 4
+            self.xp_value = 10
         else:
             self.health = 3  # default fallback
+            self.xp_value = 5
         
         self.facing_right = random.choice([True, False])
 
@@ -600,7 +627,7 @@ class Enemy(pygame.sprite.Sprite):
 # Generátor dungeonu (místnosti a chodby)
 def generate_dungeon(size):
     # Vytvoříme mřížku místností (každá místnost je slovník s x,y,w,h a dveřmi)
-    rooms = []
+    rooms: List[RoomDict] = []
     for i in range(size):
         for j in range(size):
             w = random.randint(ROOM_MIN_SIZE, ROOM_MAX_SIZE)
@@ -749,7 +776,7 @@ def main():
 
     # Herní smyčka
     running = True
-    score = 0
+    score: int = 0
     while running:
         clock.tick(FPS)
 
@@ -771,11 +798,11 @@ def main():
         projectiles.update()
 
         # Spawn nepřátel v čase (wave style)
-        spawn_timer += 1
+        spawn_timer += 1  # type: ignore
         if spawn_timer >= current_spawn_interval:
             spawn_timer = 0
-            wave_number += 1
-            current_spawn_interval = max(15, int(current_spawn_interval * ENEMY_SPAWN_ACCELERATION))
+            wave_number += 1  # type: ignore
+            current_spawn_interval = max(15, int(current_spawn_interval * ENEMY_SPAWN_ACCELERATION))  # type: ignore
 
             spawn_count = min(ENEMY_MAX_PER_WAVE, ENEMY_WAVE_BASE + (wave_number - 1) * ENEMY_WAVE_GROWTH)
             spawned = 0
@@ -786,7 +813,7 @@ def main():
                 sx = random.randint(BLOCK_SIZE, WORLD_WIDTH_PX - BLOCK_SIZE)
                 sy = random.randint(BLOCK_SIZE, WORLD_HEIGHT_PX - BLOCK_SIZE)
 
-                if abs(sx - player.rect.centerx) < ENEMY_SPAWN_RADIUS_MIN and abs(sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:
+                if abs(sx - player.rect.centerx) < ENEMY_SPAWN_RADIUS_MIN and abs(sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
                     continue
 
                 # kolem hran lokace; generovat v okolí borderu (vampire survivors style).
@@ -795,18 +822,18 @@ def main():
                     continue
 
                 enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
-                enemies.add(Enemy(sx, sy, enemy_type))
-                spawned += 1
+                enemies.add(Enemy(sx, sy, enemy_type))  # type: ignore
+                spawned += 1  # type: ignore
 
             # pokud se vlnu nepodařilo naplnit, doplníme i blíže hráči (ale ne na něj)
             while spawned < spawn_count:
                 sx = random.randint(BLOCK_SIZE, WORLD_WIDTH_PX - BLOCK_SIZE)
                 sy = random.randint(BLOCK_SIZE, WORLD_HEIGHT_PX - BLOCK_SIZE)
-                if math.hypot(sx - player.rect.centerx, sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:
+                if math.hypot(sx - player.rect.centerx, sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
                     continue
                 enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
-                enemies.add(Enemy(sx, sy, enemy_type))
-                spawned += 1
+                enemies.add(Enemy(sx, sy, enemy_type))  # type: ignore
+                spawned += 1  # type: ignore
 
         # Světové hranice: hráč a nepřátelé nesmí mimo
         if player.rect.left < 0:
@@ -826,23 +853,24 @@ def main():
             player.vel_x = 0
             player.vel_y = 0
 
-        for enemy in list(enemies):
-            if (enemy.rect.right < 0 or enemy.rect.left > WORLD_WIDTH_PX or
-                enemy.rect.top < 0 or enemy.rect.bottom > WORLD_HEIGHT_PX + 5*BLOCK_SIZE):
-                enemy.kill()
+        for spr in enemies:  # type: ignore
+            if isinstance(spr, Enemy):
+                if (spr.rect.right < 0 or spr.rect.left > WORLD_WIDTH_PX or
+                    spr.rect.top < 0 or spr.rect.bottom > WORLD_HEIGHT_PX + 5*BLOCK_SIZE):
+                    spr.kill()
 
         # Kolize hráče s nepřáteli
-        for enemy in enemies:
-            if player.rect.colliderect(enemy.rect):
+        for spr in enemies:  # type: ignore
+            if isinstance(spr, Enemy) and player.rect.colliderect(spr.rect):  # type: ignore
                 if player.hit_cooldown <= 0:
                     player.take_damage(1)
                     player.hit_cooldown = PLAYER_HIT_COOLDOWN
                 # odskok
-                if player.rect.centerx < enemy.rect.centerx:
+                if player.rect.centerx < spr.rect.centerx:  # type: ignore
                     player.vel_x = -PLAYER_SPEED * 2
                 else:
                     player.vel_x = PLAYER_SPEED * 2
-                if player.rect.centery < enemy.rect.centery:
+                if player.rect.centery < spr.rect.centery:  # type: ignore
                     player.vel_y = -PLAYER_SPEED * 2
                 else:
                     player.vel_y = PLAYER_SPEED * 2
@@ -855,12 +883,13 @@ def main():
 
         # Kolize útoku s nepřáteli
         if player.attacking:
-            for enemy in enemies:
-                if player.attack_hits(enemy):
-                    enemy.take_damage(ATTACK_DAMAGE * player.damage_boost)
-                    if enemy.is_dead():
-                        enemy.kill()
-                        score += 10
+            for spr in list(enemies):  # type: ignore
+                if isinstance(spr, Enemy) and player.attack_hits(spr):  # type: ignore
+                    spr.take_damage(ATTACK_DAMAGE * player.damage_boost)
+                    if spr.is_dead():
+                        player.add_xp(spr.xp_value)
+                        spr.kill()  # type: ignore
+                        score += 10  # type: ignore
 
         # Kolize s předměty
         item_hits = pygame.sprite.spritecollide(player, items, True)
@@ -868,10 +897,11 @@ def main():
             item.apply(player)
 
         # Smazání mrtvých nepřátel
-        for enemy in enemies:
-            if enemy.is_dead():
-                enemy.kill()
-                score += 10
+        for spr in list(enemies):  # type: ignore
+            if isinstance(spr, Enemy) and spr.is_dead():
+                player.add_xp(spr.xp_value)
+                spr.kill()  # type: ignore
+                score += 10  # type: ignore
 
         # Kamera
         camera.update(player)
@@ -908,15 +938,17 @@ def main():
 
         # UI
         font = pygame.font.Font(None, 36)
-        health_text = font.render(f"Health: {player.health}", True, WHITE)
-        screen.blit(health_text, (10, 10))
+        level_text = font.render(f"Level: {player.level} ({player.xp}/{player.max_xp} XP)", True, CYAN)
+        screen.blit(level_text, (10, 10))
+        health_text = font.render(f"Health: {player.health}/{player.max_health}", True, WHITE)
+        screen.blit(health_text, (10, 50))
         score_text = font.render(f"Score: {score}", True, WHITE)
-        screen.blit(score_text, (10, 50))
+        screen.blit(score_text, (10, 90))
         key_text = font.render(f"Keys: {player.keys}", True, WHITE)
-        screen.blit(key_text, (10, 90))
+        screen.blit(key_text, (10, 130))
         if player.damage_boost > 1:
             boost_text = font.render(f"Damage Boost: {player.damage_boost_timer//60}s", True, YELLOW)
-            screen.blit(boost_text, (10, 130))
+            screen.blit(boost_text, (10, 170))
 
         pygame.display.flip()
 
