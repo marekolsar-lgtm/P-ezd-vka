@@ -55,14 +55,12 @@ MAX_FALL_SPEED = 20
 ENEMY_SIZE = 28
 ENEMY_SPEED = 2
 FLYING_ENEMY_SPEED = 1
-SHOOTER_ENEMY_SPEED = 0.5
-PROJECTILE_SPEED = 5
-ENEMY_SPAWN_INTERVAL = 120  # snímků mezi spawnem (2s při 60FPS)
-ENEMY_SPAWN_RADIUS_MIN = 200  # minimální vzdálenost od hráče při spawnu
-ENEMY_SPAWN_ACCELERATION = 0.99  # zkracování intervalu (1=konstantní)
-ENEMY_WAVE_BASE = 3  # základní počet enemáků v první vlně
-ENEMY_WAVE_GROWTH = 1  # navýšení počtu za každou vlnu
-ENEMY_MAX_PER_WAVE = 10  # limit, aby to nevyrobilo sto několika hned
+ENEMY_SPAWN_INTERVAL = 180  # snímků mezi spawnem (3s při 60FPS)
+ENEMY_SPAWN_RADIUS_MIN = 300  # minimální vzdálenost od hráče při spawnu
+ENEMY_SPAWN_ACCELERATION = 0.985  # zrychlování intervalu (max speed za cca 5 minut)
+ENEMY_WAVE_BASE = 1  # začátek po jednom
+ENEMY_WAVE_GROWTH = 0.05  # přidá enemáka každých 20 vln (pomalejší škálování)
+ENEMY_MAX_PER_WAVE = 10  # do maxima 10
 
 # Útok
 ATTACK_DURATION = 10
@@ -142,35 +140,39 @@ class Block(pygame.sprite.Sprite):
     def draw_texture(self):
         # Vytvoření textury podle typu bloku
         if self.block_type == 'dirt':
-            self.image.fill(BROWN)
-            # přidáme tečky (kamínky)
-            for _ in range(5):
-                dx = random.randint(4, BLOCK_SIZE-8)
-                dy = random.randint(4, BLOCK_SIZE-8)
-                pygame.draw.circle(self.image, (101, 67, 33), (dx, dy), 2)
-        elif self.block_type == 'stone':
-            self.image.fill(GRAY)
-            # šedé odstíny
+            self.image.fill((120, 82, 45))
             for _ in range(8):
-                dx = random.randint(2, BLOCK_SIZE-4)
-                dy = random.randint(2, BLOCK_SIZE-4)
-                pygame.draw.line(self.image, (100, 100, 100), (dx, dy), (dx+3, dy+3), 1)
+                dx = random.randint(0, BLOCK_SIZE-4)
+                dy = random.randint(0, BLOCK_SIZE-4)
+                pygame.draw.rect(self.image, (90, 50, 20), (dx, dy, 4, 3))
+        elif self.block_type == 'stone':
+            self.image.fill((100, 100, 105))
+            pygame.draw.rect(self.image, (140, 140, 145), (0, 0, BLOCK_SIZE, BLOCK_SIZE), 2)
+            pygame.draw.polygon(self.image, (70, 70, 75), [(0, BLOCK_SIZE), (BLOCK_SIZE, BLOCK_SIZE), (BLOCK_SIZE, 0)])
+            pygame.draw.rect(self.image, (100, 100, 105), (2, 2, BLOCK_SIZE-4, BLOCK_SIZE-4))
+            for _ in range(3):
+                dx = random.randint(4, BLOCK_SIZE-6)
+                dy = random.randint(4, BLOCK_SIZE-6)
+                pygame.draw.rect(self.image, (80, 80, 85), (dx, dy, 4, 4))
         elif self.block_type == 'grass':
-            self.image.fill(BROWN)
-            # tráva nahoře
-            pygame.draw.rect(self.image, (34, 139, 34), (0, 0, BLOCK_SIZE, 6))
-            # stébla
-            for i in range(4):
-                x = i * 8 + 4
-                pygame.draw.line(self.image, (0, 100, 0), (x, 6), (x-3, 12), 2)
+            self.image.fill((120, 82, 45))
+            pygame.draw.rect(self.image, (34, 139, 34), (0, 0, BLOCK_SIZE, 12))
+            pygame.draw.rect(self.image, (0, 100, 0), (0, 10, BLOCK_SIZE, 3))
+            for i in range(5):
+                x = i * 6 + 2
+                h = random.randint(3, 6)
+                pygame.draw.line(self.image, (50, 200, 50), (x, 10), (x+random.randint(-1, 1), 10-h), 2)
         elif self.block_type == 'wood':
-            self.image.fill((160, 82, 45))
-            # kresba dřeva
-            for i in range(3):
-                y = i * 10 + 5
-                pygame.draw.line(self.image, (140, 70, 30), (2, y), (BLOCK_SIZE-2, y), 2)
+            self.image.fill((139, 69, 19))
+            pygame.draw.rect(self.image, (101, 33, 0), (0, 0, BLOCK_SIZE, BLOCK_SIZE), 2)
+            for i in range(4):
+                y = i * 8 + 4
+                pygame.draw.line(self.image, (101, 33, 0), (0, y), (BLOCK_SIZE, y), 2)
         else:  # default
             self.image.fill(WHITE)
+            
+        # Subtle border for all blocks
+        pygame.draw.rect(self.image, (0, 0, 0), (0, 0, BLOCK_SIZE, BLOCK_SIZE), 1)
 
 # Třída pro předmět
 class Item(pygame.sprite.Sprite):
@@ -182,21 +184,26 @@ class Item(pygame.sprite.Sprite):
         self.draw_item()
 
     def draw_item(self):
+        self.image.fill((0, 0, 0, 0))  # průhledné pozadí
+        # Glowing shadow
+        pygame.draw.circle(self.image, (255, 255, 255, 50), (12, 12), 10)
+
         if self.item_type == 'health':
-            # červený kříž
-            self.image.fill((0, 0, 0, 0))  # průhledné pozadí
-            pygame.draw.rect(self.image, RED, (4, 10, 16, 4))
-            pygame.draw.rect(self.image, RED, (10, 4, 4, 16))
+            pygame.draw.rect(self.image, (150, 0, 0), (6, 10, 12, 4))
+            pygame.draw.rect(self.image, (150, 0, 0), (10, 6, 4, 12))
+            pygame.draw.rect(self.image, (255, 50, 50), (7, 11, 10, 2))
+            pygame.draw.rect(self.image, (255, 50, 50), (11, 7, 2, 10))
         elif self.item_type == 'damage_boost':
             # žlutý meč
-            self.image.fill((0, 0, 0, 0))
-            pygame.draw.polygon(self.image, YELLOW, [(12, 2), (22, 12), (18, 16), (8, 6)])
-            pygame.draw.rect(self.image, YELLOW, (6, 14, 12, 6))
+            pygame.draw.polygon(self.image, (200, 100, 0), [(12, 3), (22, 13), (18, 17), (8, 7)])
+            pygame.draw.polygon(self.image, (255, 215, 0), [(13, 4), (20, 11), (17, 14), (10, 7)])
+            pygame.draw.rect(self.image, (139, 69, 19), (6, 15, 6, 6))
         elif self.item_type == 'key':
             # klíč
-            self.image.fill((0, 0, 0, 0))
-            pygame.draw.circle(self.image, ORANGE, (12, 8), 6)
-            pygame.draw.rect(self.image, ORANGE, (8, 14, 8, 8))
+            pygame.draw.circle(self.image, (255, 215, 0), (8, 12), 5, 2)
+            pygame.draw.rect(self.image, (255, 215, 0), (13, 11, 8, 2))
+            pygame.draw.rect(self.image, (255, 215, 0), (17, 13, 2, 3))
+            pygame.draw.rect(self.image, (255, 215, 0), (20, 13, 2, 2))
 
     def apply(self, player):
         if self.item_type == 'health':
@@ -207,24 +214,6 @@ class Item(pygame.sprite.Sprite):
         elif self.item_type == 'key':
             player.keys += 1
         self.kill()
-
-# Třída pro střelu (projektily)
-class Projectile(pygame.sprite.Sprite):
-    def __init__(self, x, y, direction, speed=PROJECTILE_SPEED):
-        super().__init__()
-        self.image = pygame.Surface((8, 8))
-        self.image.fill(RED)
-        self.rect = self.image.get_rect(center=(x, y))
-        self.direction = direction  # (dx, dy)
-        self.speed = speed
-
-    def update(self):
-        self.rect.x += self.direction[0] * self.speed
-        self.rect.y += self.direction[1] * self.speed
-        # pokud vyletí mimo obraz, zničíme
-        if (self.rect.x < -50 or self.rect.x > WORLD_WIDTH_PX + 50 or
-            self.rect.y < -50 or self.rect.y > WORLD_HEIGHT_PX + 50):
-            self.kill()
 
 # Třída pro hráče (s animacemi)
 class Player(pygame.sprite.Sprite):
@@ -263,66 +252,82 @@ class Player(pygame.sprite.Sprite):
         self.animation_speed = 0.2
         self.image = self.animation_frames['idle'][0]
 
+    def draw_player_base(self, surf, is_walking=False, step=0):
+        surf.fill((0, 0, 0, 0))
+        # Shadow
+        pygame.draw.ellipse(surf, (0, 0, 0, 80), (4, 22, 20, 6))
+        
+        # Legs
+        leg_y = 20
+        leg1_y = leg_y - (2 if is_walking and step % 2 == 0 else 0)
+        leg2_y = leg_y - (2 if is_walking and step % 2 == 1 else 0)
+        pygame.draw.rect(surf, (30, 30, 100), (8, leg1_y, 4, 8))
+        pygame.draw.rect(surf, (30, 30, 100), (16, leg2_y, 4, 8))
+        
+        # Body
+        pygame.draw.rect(surf, (0, 120, 255), (6, 10, 16, 12), border_radius=3)
+        pygame.draw.rect(surf, (150, 75, 0), (6, 18, 16, 3)) # Belt
+        pygame.draw.rect(surf, (255, 215, 0), (12, 17, 4, 5)) # Buckle
+        
+        # Head
+        pygame.draw.rect(surf, (255, 224, 189), (8, 2, 12, 10), border_radius=4)
+        pygame.draw.rect(surf, (100, 50, 0), (7, 1, 14, 4), border_radius=2) # Hair
+        
+        # Eyes
+        pygame.draw.rect(surf, (255, 255, 255), (10, 6, 3, 3))
+        pygame.draw.rect(surf, (255, 255, 255), (16, 6, 3, 3))
+        pygame.draw.rect(surf, (0, 0, 0), (11, 7, 2, 2))
+        pygame.draw.rect(surf, (0, 0, 0), (17, 7, 2, 2))
+
     def create_idle_frames(self):
         frames = []
-        # 2 snímky pro postávání
         for i in range(2):
-            surf = pygame.Surface((self.width, self.height))
-            surf.fill(BLUE)
-            # oči
-            eye_offset = 2 if i == 0 else -2
-            pygame.draw.circle(surf, WHITE, (8 + eye_offset, 8), 3)
-            pygame.draw.circle(surf, WHITE, (20 + eye_offset, 8), 3)
-            pygame.draw.circle(surf, BLACK, (9 + eye_offset, 9), 1)
-            pygame.draw.circle(surf, BLACK, (21 + eye_offset, 9), 1)
+            surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self.draw_player_base(surf)
+            if i == 1:
+                surf.scroll(0, 1) # breathing
             frames.append(surf)
         return frames
 
     def create_walk_frames(self):
         frames = []
         for i in range(4):
-            surf = pygame.Surface((self.width, self.height))
-            surf.fill(BLUE)
-            # posun nohou
-            leg_offset = i * 4
-            pygame.draw.rect(surf, (0, 0, 200), (6, 20, 5, 8))
-            pygame.draw.rect(surf, (0, 0, 200), (17, 20, 5, 8))
-            # oči
-            pygame.draw.circle(surf, WHITE, (8, 8), 3)
-            pygame.draw.circle(surf, WHITE, (20, 8), 3)
-            pygame.draw.circle(surf, BLACK, (9, 9), 1)
-            pygame.draw.circle(surf, BLACK, (21, 9), 1)
+            surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self.draw_player_base(surf, is_walking=True, step=i)
             frames.append(surf)
         return frames
 
     def create_jump_frames(self):
-        surf = pygame.Surface((self.width, self.height))
-        surf.fill(BLUE)
-        # oči překvapené
-        pygame.draw.circle(surf, WHITE, (8, 6), 3)
-        pygame.draw.circle(surf, WHITE, (20, 6), 3)
-        pygame.draw.circle(surf, BLACK, (9, 7), 1)
-        pygame.draw.circle(surf, BLACK, (21, 7), 1)
+        surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.draw_player_base(surf)
+        # surprised eyes
+        pygame.draw.rect(surf, (0, 0, 0), (11, 5, 2, 2))
+        pygame.draw.rect(surf, (0, 0, 0), (17, 5, 2, 2))
         return [surf]
 
     def create_attack_frames(self):
-        surf = pygame.Surface((self.width, self.height))
-        surf.fill(BLUE)
-        # meč
-        pygame.draw.line(surf, WHITE, (self.width//2, 5), (self.width//2 + 15, -5), 3)
+        surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.draw_player_base(surf)
+        # sword
+        pygame.draw.line(surf, (200, 200, 200), (14, 15), (26, 0), 4)
+        pygame.draw.line(surf, (255, 255, 255), (15, 15), (27, 0), 1)
+        pygame.draw.circle(surf, (150, 75, 0), (14, 15), 3)
         return [surf]
 
-    def handle_input(self):
+    def handle_input(self, camera=None):
         keys = pygame.key.get_pressed()
+        mouse_btns = pygame.mouse.get_pressed()
         self.vel_x = 0
         self.vel_y = 0
 
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.vel_x = -PLAYER_SPEED
-            self.facing_right = False
+            if not self.attacking:
+                self.facing_right = False
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.vel_x = PLAYER_SPEED
-            self.facing_right = True
+            if not self.attacking:
+                self.facing_right = True
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             self.vel_y = -PLAYER_SPEED
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
@@ -334,13 +339,22 @@ class Player(pygame.sprite.Sprite):
             self.vel_x *= inv
             self.vel_y *= inv
 
-        # Útok (klávesa E)
-        if keys[pygame.K_e] and self.attack_cooldown <= 0:
+        # Útok (klávesa E nebo levé tlačítko)
+        if (keys[pygame.K_e] or mouse_btns[0]) and self.attack_cooldown <= 0:
             self.attacking = True
             self.attack_timer = ATTACK_DURATION
             self.attack_cooldown = BASE_ATTACK_COOLDOWN
-            # Nastavíme úhel pro 180° swing
-            self.attack_angle = -90 if self.facing_right else 90
+            
+            if camera:
+                mx, my = pygame.mouse.get_pos()
+                world_mx = mx - camera.rect.x
+                world_my = my - camera.rect.y
+                dx = world_mx - self.rect.centerx
+                dy = world_my - self.rect.centery
+                self.attack_angle = math.degrees(math.atan2(dy, dx))
+                self.facing_right = dx >= 0
+            else:
+                self.attack_angle = 0 if self.facing_right else 180
 
     def apply_gravity(self):
         # Top-down režim: gravitaci nepotřebujeme
@@ -370,8 +384,8 @@ class Player(pygame.sprite.Sprite):
                     self.rect.top = block.rect.bottom
                     self.vel_y = 0
 
-    def update(self, blocks):
-        self.handle_input()
+    def update(self, blocks, camera=None):
+        self.handle_input(camera)
         # top-down -> žádná gravitace ve hráči
         self.move(blocks)
 
@@ -395,7 +409,6 @@ class Player(pygame.sprite.Sprite):
         # Animace
         if self.attacking:
             self.current_animation = 'attack'
-            self.attack_angle = (-90 + 180 * (1 - self.attack_timer / ATTACK_DURATION)) if self.facing_right else (90 - 180 * (1 - self.attack_timer / ATTACK_DURATION))
         elif self.vel_x != 0 or self.vel_y != 0:
             self.current_animation = 'walk'
         else:
@@ -430,12 +443,8 @@ class Player(pygame.sprite.Sprite):
         if dist > ATTACK_SIZE * 2:
             return False
         ang = math.degrees(math.atan2(dy, dx))
-        if self.facing_right:
-            # 180° před hráčem napravo
-            return -90 <= ang <= 90
-        else:
-            # 180° před hráčem nalevo
-            return ang >= 90 or ang <= -90
+        diff = (ang - self.attack_angle + 180) % 360 - 180
+        return abs(diff) <= 90
 
     def attack_hits(self, enemy):
         if not self.attacking:
@@ -450,18 +459,26 @@ class Player(pygame.sprite.Sprite):
     def draw_attack(self, screen, camera):
         if self.attacking:
             center = camera.apply(self).center
-            arc_radius = ATTACK_SIZE * 1.8
-            arc_rect = pygame.Rect(0, 0, arc_radius*2, arc_radius*2)
-            arc_rect.center = center
-
-            if self.facing_right:
-                start_angle = math.radians(-90)
-                end_angle = math.radians(90)
-            else:
-                start_angle = math.radians(90)
-                end_angle = math.radians(270)
-
-            pygame.draw.arc(screen, WHITE, arc_rect, start_angle, end_angle, 5)
+            arc_radius = ATTACK_SIZE * 1.5
+            
+            swoosh_surf = pygame.Surface((arc_radius*2, arc_radius*2), pygame.SRCALPHA)
+            
+            progress = 1.0 - (self.attack_timer / ATTACK_DURATION)
+            
+            visual_attack_angle = -self.attack_angle
+            start_deg = visual_attack_angle - 90
+            end_deg = start_deg + 180 * progress
+                
+            start_rad = math.radians(start_deg)
+            end_rad = math.radians(end_deg)
+            
+            if end_rad > start_rad + 0.05:
+                rect = pygame.Rect(0, 0, arc_radius*2, arc_radius*2)
+                pygame.draw.arc(swoosh_surf, (255, 50, 0, 80), rect, start_rad, end_rad, int(arc_radius * 0.5))
+                pygame.draw.arc(swoosh_surf, (255, 150, 0, 150), rect, start_rad, end_rad, int(arc_radius * 0.25))
+                pygame.draw.arc(swoosh_surf, (255, 255, 255, 255), rect, start_rad, end_rad, 4)
+            
+            screen.blit(swoosh_surf, swoosh_surf.get_rect(center=center))
 
     def take_damage(self, amount):
         self.health -= amount
@@ -501,9 +518,6 @@ class Enemy(pygame.sprite.Sprite):
         elif self.enemy_type == 'flying':
             self.health = 2
             self.xp_value = 5
-        elif self.enemy_type == 'shooter':
-            self.health = 4
-            self.xp_value = 10
         else:
             self.health = 3  # default fallback
             self.xp_value = 5
@@ -515,22 +529,25 @@ class Enemy(pygame.sprite.Sprite):
         self.draw_enemy()
 
     def draw_enemy(self):
-        self.image.fill(RED)
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.image.fill((0, 0, 0, 0))
+        # Shadow
+        pygame.draw.ellipse(self.image, (0, 0, 0, 80), (4, 24, 20, 6))
+
         if self.enemy_type == 'walker':
-            # jednoduchý červený čtverec s očima
-            pygame.draw.circle(self.image, WHITE, (8, 8), 3)
-            pygame.draw.circle(self.image, WHITE, (20, 8), 3)
-            pygame.draw.circle(self.image, BLACK, (9, 9), 1)
-            pygame.draw.circle(self.image, BLACK, (21, 9), 1)
+            # Slime / Zombie
+            pygame.draw.rect(self.image, (34, 139, 34), (4, 8, 20, 18), border_radius=6)
+            pygame.draw.rect(self.image, (0, 100, 0), (4, 8, 20, 18), 2, border_radius=6)
+            pygame.draw.circle(self.image, (255, 0, 0), (10, 14), 3)
+            pygame.draw.circle(self.image, (255, 0, 0), (18, 14), 3)
+            pygame.draw.rect(self.image, (0, 0, 0), (10, 20, 8, 2))
         elif self.enemy_type == 'flying':
-            self.image.fill(PURPLE)
-            # křídla
-            pygame.draw.polygon(self.image, (150, 0, 150), [(4, 10), (0, 14), (4, 18)])
-            pygame.draw.polygon(self.image, (150, 0, 150), [(24, 10), (28, 14), (24, 18)])
-        elif self.enemy_type == 'shooter':
-            self.image.fill(ORANGE)
-            # hlaveň
-            pygame.draw.rect(self.image, (200, 100, 0), (10, 6, 12, 4))
+            # Bat
+            pygame.draw.circle(self.image, (75, 0, 130), (14, 14), 8)
+            pygame.draw.polygon(self.image, (138, 43, 226), [(6, 14), (-4, 4), (2, 20)])
+            pygame.draw.polygon(self.image, (138, 43, 226), [(22, 14), (32, 4), (26, 20)])
+            pygame.draw.circle(self.image, YELLOW, (11, 12), 2)
+            pygame.draw.circle(self.image, YELLOW, (17, 12), 2)
 
     def apply_gravity(self):
         # top-down režim; nepřítel nepotřebuje gravitační sílu
@@ -562,7 +579,7 @@ class Enemy(pygame.sprite.Sprite):
                     self.rect.top = block.rect.bottom
                     self.vel_y = ENEMY_SPEED
 
-    def update(self, blocks, player=None, projectiles=None):
+    def update(self, blocks, player=None):
         if self.enemy_type == 'walker':
             # Chodec: pravidelně chase hráče, s malou plynulou korekcí
             if player:
@@ -595,21 +612,6 @@ class Enemy(pygame.sprite.Sprite):
                 # Omezení rychlosti
                 self.vel_x = max(-FLYING_ENEMY_SPEED, min(FLYING_ENEMY_SPEED, self.vel_x))
                 self.vel_y = max(-FLYING_ENEMY_SPEED, min(FLYING_ENEMY_SPEED, self.vel_y))
-        elif self.enemy_type == 'shooter':
-            # Střelec: pomalu se pohybuje a střílí na hráče
-            if self.facing_right:
-                self.vel_x = SHOOTER_ENEMY_SPEED
-            else:
-                self.vel_x = -SHOOTER_ENEMY_SPEED
-            # Střelba (náhodná nebo periodická)
-            if random.random() < 0.01 and player and projectiles is not None:
-                dx = player.rect.centerx - self.rect.centerx
-                dy = player.rect.centery - self.rect.centery
-                dist = math.hypot(dx, dy)
-                if dist != 0:
-                    direction = (dx/dist, dy/dist)
-                    projectile = Projectile(self.rect.centerx, self.rect.centery, direction)
-                    projectiles.add(projectile)
 
         self.apply_gravity()
         self.move(blocks)
@@ -759,12 +761,9 @@ def main():
         if random.random() < 0.7:  # 70% šance na nepřítele v ostatních místnostech
             ex = room['x'] + random.randint(2, (room['width']//BLOCK_SIZE)-3) * BLOCK_SIZE
             ey = room['y'] + random.randint(2, (room['height']//BLOCK_SIZE)-3) * BLOCK_SIZE
-            enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
+            enemy_type = random.choices(['walker', 'flying'], weights=[0.7, 0.3])[0]
             enemy = Enemy(ex, ey, enemy_type)
             enemies.add(enemy)
-
-    # Skupina pro projektily
-    projectiles = pygame.sprite.Group()
 
     # Kamera
     camera = Camera(WORLD_WIDTH_PX, WORLD_HEIGHT_PX)
@@ -793,9 +792,8 @@ def main():
                         screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN)
 
         # Aktualizace
-        player.update(blocks)
-        enemies.update(blocks, player, projectiles)
-        projectiles.update()
+        player.update(blocks, camera)
+        enemies.update(blocks, player)
 
         # Spawn nepřátel v čase (wave style)
         spawn_timer += 1  # type: ignore
@@ -804,34 +802,42 @@ def main():
             wave_number += 1  # type: ignore
             current_spawn_interval = max(15, int(current_spawn_interval * ENEMY_SPAWN_ACCELERATION))  # type: ignore
 
-            spawn_count = min(ENEMY_MAX_PER_WAVE, ENEMY_WAVE_BASE + (wave_number - 1) * ENEMY_WAVE_GROWTH)
+            spawn_count = int(min(ENEMY_MAX_PER_WAVE, ENEMY_WAVE_BASE + (wave_number - 1) * ENEMY_WAVE_GROWTH))
             spawned = 0
             attempts = 0
 
             while spawned < spawn_count and attempts < spawn_count * 8:
                 attempts += 1
-                sx = random.randint(BLOCK_SIZE, WORLD_WIDTH_PX - BLOCK_SIZE)
-                sy = random.randint(BLOCK_SIZE, WORLD_HEIGHT_PX - BLOCK_SIZE)
+                
+                # Zjištění okraje kamery
+                cam_x = -camera.rect.x
+                cam_y = -camera.rect.y
+                
+                edge = random.randint(0, 3)
+                offset = ENEMY_SIZE + 20 # kousek mimo obrazovku
+                
+                # Vygenerujeme mimo kameru, aby hráče obkličovali plynule
+                if edge == 0:
+                    sx = random.randint(cam_x - offset, cam_x + WINDOW_WIDTH + offset)
+                    sy = cam_y - offset
+                elif edge == 1:
+                    sx = cam_x + WINDOW_WIDTH + offset
+                    sy = random.randint(cam_y - offset, cam_y + WINDOW_HEIGHT + offset)
+                elif edge == 2:
+                    sx = random.randint(cam_x - offset, cam_x + WINDOW_WIDTH + offset)
+                    sy = cam_y + WINDOW_HEIGHT + offset
+                else:
+                    sx = cam_x - offset
+                    sy = random.randint(cam_y - offset, cam_y + WINDOW_HEIGHT + offset)
 
-                if abs(sx - player.rect.centerx) < ENEMY_SPAWN_RADIUS_MIN and abs(sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
-                    continue
+                # Omezíme v rámci herní mapy
+                sx = max(BLOCK_SIZE, min(sx, WORLD_WIDTH_PX - BLOCK_SIZE))
+                sy = max(BLOCK_SIZE, min(sy, WORLD_HEIGHT_PX - BLOCK_SIZE))
 
-                # kolem hran lokace; generovat v okolí borderu (vampire survivors style).
-                if not (sx < ENEMY_SPAWN_RADIUS_MIN or sx > WORLD_WIDTH_PX - ENEMY_SPAWN_RADIUS_MIN or
-                        sy < ENEMY_SPAWN_RADIUS_MIN or sy > WORLD_HEIGHT_PX - ENEMY_SPAWN_RADIUS_MIN):
-                    continue
-
-                enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
-                enemies.add(Enemy(sx, sy, enemy_type))  # type: ignore
-                spawned += 1  # type: ignore
-
-            # pokud se vlnu nepodařilo naplnit, doplníme i blíže hráči (ale ne na něj)
-            while spawned < spawn_count:
-                sx = random.randint(BLOCK_SIZE, WORLD_WIDTH_PX - BLOCK_SIZE)
-                sy = random.randint(BLOCK_SIZE, WORLD_HEIGHT_PX - BLOCK_SIZE)
                 if math.hypot(sx - player.rect.centerx, sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
                     continue
-                enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
+
+                enemy_type = random.choices(['walker', 'flying'], weights=[0.7, 0.3])[0]
                 enemies.add(Enemy(sx, sy, enemy_type))  # type: ignore
                 spawned += 1  # type: ignore
 
@@ -875,12 +881,6 @@ def main():
                 else:
                     player.vel_y = PLAYER_SPEED * 2
 
-        # Kolize střel s hráčem
-        for proj in projectiles:
-            if player.rect.colliderect(proj.rect):
-                player.take_damage(1)
-                proj.kill()
-
         # Kolize útoku s nepřáteli
         if player.attacking:
             for spr in list(enemies):  # type: ignore
@@ -907,7 +907,13 @@ def main():
         camera.update(player)
 
         # Kreslení travnatého pozadí
-        screen.fill(GREEN)
+        screen.fill((34, 110, 34))
+        bg_offset_x = camera.rect.x % 64
+        bg_offset_y = camera.rect.y % 64
+        for i in range(-64, WINDOW_WIDTH + 64, 64):
+            for j in range(-64, WINDOW_HEIGHT + 64, 64):
+                pygame.draw.rect(screen, (30, 100, 30), (i + bg_offset_x, j + bg_offset_y, 32, 32))
+                pygame.draw.rect(screen, (30, 100, 30), (i + 32 + bg_offset_x, j + 32 + bg_offset_y, 32, 32))
 
         # Obdélník pro culling (vykreslení jen na obrazovce)
         screen_rect = pygame.Rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -925,10 +931,6 @@ def main():
         # Kreslení nepřátel
         for enemy in enemies:
             screen.blit(enemy.image, camera.apply(enemy))
-
-        # Kreslení střel
-        for proj in projectiles:
-            screen.blit(proj.image, camera.apply(proj))
 
         # Kreslení hráče
         screen.blit(player.image, camera.apply(player))
@@ -971,10 +973,9 @@ def main():
                 if random.random() < 0.7:
                     ex = room['x'] + random.randint(2, (room['width']//BLOCK_SIZE)-3) * BLOCK_SIZE
                     ey = room['y'] + random.randint(2, (room['height']//BLOCK_SIZE)-3) * BLOCK_SIZE
-                    enemy_type = random.choices(['walker', 'flying', 'shooter'], weights=[0.6, 0.3, 0.1])[0]
+                    enemy_type = random.choices(['walker', 'flying'], weights=[0.7, 0.3])[0]
                     enemy = Enemy(ex, ey, enemy_type)
                     enemies.add(enemy)
-            projectiles = pygame.sprite.Group()
             spawn_timer = 0
             current_spawn_interval = ENEMY_SPAWN_INTERVAL
             wave_number = 0
