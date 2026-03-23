@@ -61,6 +61,7 @@ ENEMY_SPAWN_ACCELERATION = 0.985  # zrychlování intervalu (max speed za cca 5 
 ENEMY_WAVE_BASE = 1  # začátek po jednom
 ENEMY_WAVE_GROWTH = 0.05  # přidá enemáka každých 20 vln (pomalejší škálování)
 ENEMY_MAX_PER_WAVE = 10  # do maxima 10
+WAVE_DURATION = 7200  # 2 minuty při 60 FPS
 
 # Útok
 ATTACK_DURATION = 10
@@ -515,12 +516,23 @@ class Enemy(pygame.sprite.Sprite):
         if self.enemy_type == 'walker':
             self.health = 3
             self.xp_value = 5
+            self.speed = ENEMY_SPEED
         elif self.enemy_type == 'flying':
             self.health = 2
             self.xp_value = 5
+            self.speed = FLYING_ENEMY_SPEED
+        elif self.enemy_type == 'tank':
+            self.health = 10
+            self.xp_value = 15
+            self.speed = ENEMY_SPEED * 0.6
+        elif self.enemy_type == 'fast':
+            self.health = 1
+            self.xp_value = 5
+            self.speed = ENEMY_SPEED * 1.5
         else:
             self.health = 3  # default fallback
             self.xp_value = 5
+            self.speed = ENEMY_SPEED
         
         self.facing_right = random.choice([True, False])
 
@@ -548,6 +560,18 @@ class Enemy(pygame.sprite.Sprite):
             pygame.draw.polygon(self.image, (138, 43, 226), [(22, 14), (32, 4), (26, 20)])
             pygame.draw.circle(self.image, YELLOW, (11, 12), 2)
             pygame.draw.circle(self.image, YELLOW, (17, 12), 2)
+        elif self.enemy_type == 'tank':
+            # Golem
+            pygame.draw.rect(self.image, (105, 105, 105), (2, 4, 24, 24), border_radius=4)
+            pygame.draw.rect(self.image, (50, 50, 50), (2, 4, 24, 24), 3, border_radius=4)
+            pygame.draw.circle(self.image, (255, 165, 0), (10, 10), 4)
+            pygame.draw.circle(self.image, (255, 165, 0), (18, 10), 4)
+            pygame.draw.rect(self.image, (0, 0, 0), (8, 18, 12, 4))
+        elif self.enemy_type == 'fast':
+            # Ghost/small eye
+            pygame.draw.circle(self.image, (200, 200, 255, 180), (14, 14), 10)
+            pygame.draw.circle(self.image, (255, 0, 0), (14, 14), 4)
+            pygame.draw.circle(self.image, (0, 0, 0), (14, 14), 2)
 
     def apply_gravity(self):
         # top-down režim; nepřítel nepotřebuje gravitační sílu
@@ -566,36 +590,36 @@ class Enemy(pygame.sprite.Sprite):
             if self.rect.colliderect(block.rect):
                 if vel_x > 0:
                     self.rect.right = block.rect.left
-                    self.vel_x = -ENEMY_SPEED
+                    self.vel_x = -self.speed
                     self.facing_right = False
                 elif vel_x < 0:
                     self.rect.left = block.rect.right
-                    self.vel_x = ENEMY_SPEED
+                    self.vel_x = self.speed
                     self.facing_right = True
                 if vel_y > 0:
                     self.rect.bottom = block.rect.top
-                    self.vel_y = -ENEMY_SPEED
+                    self.vel_y = -self.speed
                 elif vel_y < 0:
                     self.rect.top = block.rect.bottom
-                    self.vel_y = ENEMY_SPEED
+                    self.vel_y = self.speed
 
     def update(self, blocks, player=None):
-        if self.enemy_type == 'walker':
+        if self.enemy_type in ['walker', 'tank', 'fast']:
             # Chodec: pravidelně chase hráče, s malou plynulou korekcí
             if player:
                 dx = player.rect.centerx - self.rect.centerx
                 dy = player.rect.centery - self.rect.centery
                 dist = math.hypot(dx, dy)
                 if dist != 0:
-                    self.vel_x = (dx / dist) * ENEMY_SPEED
-                    self.vel_y = (dy / dist) * ENEMY_SPEED
+                    self.vel_x = (dx / dist) * self.speed
+                    self.vel_y = (dy / dist) * self.speed
                 else:
                     self.vel_x, self.vel_y = 0, 0
             else:
                 if self.facing_right:
-                    self.vel_x = ENEMY_SPEED
+                    self.vel_x = self.speed
                 else:
-                    self.vel_x = -ENEMY_SPEED
+                    self.vel_x = -self.speed
                 self.vel_y = 0
         elif self.enemy_type == 'flying':
             # Létající: sleduje hráče (jednoduché přiblížení)
@@ -604,14 +628,14 @@ class Enemy(pygame.sprite.Sprite):
                 dy = player.rect.centery - self.rect.centery
                 dist = math.hypot(dx, dy)
                 if dist != 0:
-                    self.vel_x = (dx / dist) * FLYING_ENEMY_SPEED
-                    self.vel_y = (dy / dist) * FLYING_ENEMY_SPEED
+                    self.vel_x = (dx / dist) * self.speed
+                    self.vel_y = (dy / dist) * self.speed
                 else:
                     self.vel_x = 0
                     self.vel_y = 0
                 # Omezení rychlosti
-                self.vel_x = max(-FLYING_ENEMY_SPEED, min(FLYING_ENEMY_SPEED, self.vel_x))
-                self.vel_y = max(-FLYING_ENEMY_SPEED, min(FLYING_ENEMY_SPEED, self.vel_y))
+                self.vel_x = max(-self.speed, min(self.speed, self.vel_x))
+                self.vel_y = max(-self.speed, min(self.speed, self.vel_y))
 
         self.apply_gravity()
         self.move(blocks)
@@ -771,7 +795,9 @@ def main():
     # Neustálý spread nepřátel
     spawn_timer = 0
     current_spawn_interval = ENEMY_SPAWN_INTERVAL
-    wave_number = 0
+    wave_number = 1
+    wave_timer = 0
+    total_spawns = 0
 
     # Herní smyčka
     running = True
@@ -795,14 +821,20 @@ def main():
         player.update(blocks, camera)
         enemies.update(blocks, player)
 
+        # Wave timer
+        wave_timer += 1
+        if wave_timer >= WAVE_DURATION:
+            wave_timer = 0
+            wave_number += 1
+
         # Spawn nepřátel v čase (wave style)
         spawn_timer += 1  # type: ignore
         if spawn_timer >= current_spawn_interval:
             spawn_timer = 0
-            wave_number += 1  # type: ignore
+            total_spawns += 1
             current_spawn_interval = max(15, int(current_spawn_interval * ENEMY_SPAWN_ACCELERATION))  # type: ignore
 
-            spawn_count = int(min(ENEMY_MAX_PER_WAVE, ENEMY_WAVE_BASE + (wave_number - 1) * ENEMY_WAVE_GROWTH))
+            spawn_count = int(min(ENEMY_MAX_PER_WAVE, ENEMY_WAVE_BASE + (total_spawns - 1) * ENEMY_WAVE_GROWTH))
             spawned = 0
             attempts = 0
 
@@ -837,7 +869,9 @@ def main():
                 if math.hypot(sx - player.rect.centerx, sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
                     continue
 
-                enemy_type = random.choices(['walker', 'flying'], weights=[0.7, 0.3])[0]
+                enemy_types = ['walker', 'flying', 'tank', 'fast']
+                wave_type_index = (wave_number - 1) % len(enemy_types)
+                enemy_type = enemy_types[wave_type_index]
                 enemies.add(Enemy(sx, sy, enemy_type))  # type: ignore
                 spawned += 1  # type: ignore
 
@@ -940,6 +974,11 @@ def main():
 
         # UI
         font = pygame.font.Font(None, 36)
+        wave_time_left = (WAVE_DURATION - wave_timer) // FPS
+        minutes = wave_time_left // 60
+        seconds = wave_time_left % 60
+        wave_text = font.render(f"Wave: {wave_number} ({minutes}:{seconds:02d})", True, ORANGE)
+        screen.blit(wave_text, (WINDOW_WIDTH // 2 - wave_text.get_width() // 2, 10))
         level_text = font.render(f"Level: {player.level} ({player.xp}/{player.max_xp} XP)", True, CYAN)
         screen.blit(level_text, (10, 10))
         health_text = font.render(f"Health: {player.health}/{player.max_health}", True, WHITE)
@@ -978,7 +1017,9 @@ def main():
                     enemies.add(enemy)
             spawn_timer = 0
             current_spawn_interval = ENEMY_SPAWN_INTERVAL
-            wave_number = 0
+            wave_number = 1
+            wave_timer = 0
+            total_spawns = 0
 
 # Hlavní menu
 def main_menu():
