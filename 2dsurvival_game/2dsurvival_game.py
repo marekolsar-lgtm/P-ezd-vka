@@ -254,6 +254,7 @@ class Player(pygame.sprite.Sprite):
         self.damage_boost_timer = 0
         self.keys = 0
         self.hit_cooldown = 0
+        self.knockback_timer = 0
         self.xp = 0
         self.level = 1
         self.max_xp = 10
@@ -336,31 +337,36 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self, camera=None):
         keys = pygame.key.get_pressed()
-        mouse_btns = pygame.mouse.get_pressed()
-        self.vel_x = 0
-        self.vel_y = 0
+        
+        if self.knockback_timer > 0:
+            self.knockback_timer -= 1
+            self.vel_x *= 0.85
+            self.vel_y *= 0.85
+        else:
+            self.vel_x = 0
+            self.vel_y = 0
 
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.vel_x = -PLAYER_SPEED
-            if not self.attacking:
-                self.facing_right = False
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.vel_x = PLAYER_SPEED
-            if not self.attacking:
-                self.facing_right = True
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.vel_y = -PLAYER_SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.vel_y = PLAYER_SPEED
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.vel_x = -PLAYER_SPEED
+                if not self.attacking:
+                    self.facing_right = False
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.vel_x = PLAYER_SPEED
+                if not self.attacking:
+                    self.facing_right = True
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                self.vel_y = -PLAYER_SPEED
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                self.vel_y = PLAYER_SPEED
 
-        # Normalizace diagonálního pohybu, aby nešel rychleji
-        if self.vel_x != 0 and self.vel_y != 0:
-            inv = 1 / math.sqrt(2)
-            self.vel_x *= inv
-            self.vel_y *= inv
+            # Normalizace diagonálního pohybu, aby nešel rychleji
+            if self.vel_x != 0 and self.vel_y != 0:
+                inv = 1 / math.sqrt(2)
+                self.vel_x *= inv
+                self.vel_y *= inv
 
-        # Útok (klávesa E nebo levé tlačítko)
-        if (keys[pygame.K_e] or mouse_btns[0]) and self.attack_cooldown <= 0:
+        # Útok (automatický)
+        if self.attack_cooldown <= 0:
             self.attacking = True
             self.attack_timer = ATTACK_DURATION
             self.attack_cooldown = BASE_ATTACK_COOLDOWN
@@ -990,15 +996,16 @@ def main():
                     if player.hit_cooldown <= 0:
                         player.take_damage(spr.damage)
                         player.hit_cooldown = PLAYER_HIT_COOLDOWN
-                    # odskok
-                    if player.rect.centerx < spr.rect.centerx:  # type: ignore
-                        player.vel_x = -PLAYER_SPEED * 2
-                    else:
-                        player.vel_x = PLAYER_SPEED * 2
-                    if player.rect.centery < spr.rect.centery:  # type: ignore
-                        player.vel_y = -PLAYER_SPEED * 2
-                    else:
-                        player.vel_y = PLAYER_SPEED * 2
+                        # odskok pouze při zranění a mírnější (1.5x speed a 7 snímků)
+                        if player.rect.centerx < spr.rect.centerx:  # type: ignore
+                            player.vel_x = -PLAYER_SPEED * 1.5
+                        else:
+                            player.vel_x = PLAYER_SPEED * 1.5
+                        if player.rect.centery < spr.rect.centery:  # type: ignore
+                            player.vel_y = -PLAYER_SPEED * 1.5
+                        else:
+                            player.vel_y = PLAYER_SPEED * 1.5
+                        player.knockback_timer = 7
 
             # Kolize útoku s nepřáteli
             if player.attacking:
@@ -1059,7 +1066,12 @@ def main():
                 screen.blit(enemy.image, camera.apply(enemy))
 
         # Kreslení hráče
-        screen.blit(player.image, camera.apply(player))
+        if player.hit_cooldown > 0 and (player.hit_cooldown // 4) % 2 == 0:
+            mask = pygame.mask.from_surface(player.image)
+            flash_image = mask.to_surface(setcolor=(255, 50, 50, 255), unsetcolor=(0, 0, 0, 0))
+            screen.blit(flash_image, camera.apply(player))
+        else:
+            screen.blit(player.image, camera.apply(player))
 
         # Kreslení útoku
         player.draw_attack(screen, camera)
@@ -1145,32 +1157,6 @@ def main_menu():
 
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if is_level_up_screen:
-                    mx, my = pygame.mouse.get_pos()
-                    card_w, card_h, spacing = 250, 350, 50
-                    start_x = (WINDOW_WIDTH - (3*card_w + 2*spacing)) // 2
-                    start_y = (WINDOW_HEIGHT - card_h) // 2
-                    for idx, upgrade in enumerate(upgrades_offered):
-                        rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
-                        if rect.collidepoint(mx, my):
-                            if upgrade["type"] == "max_health":
-                                player.max_health += upgrade["value"]
-                                player.health += upgrade["value"]
-                            elif upgrade["type"] == "damage":
-                                global ATTACK_DAMAGE
-                                ATTACK_DAMAGE += upgrade["value"]
-                            elif upgrade["type"] == "speed":
-                                global PLAYER_SPEED
-                                PLAYER_SPEED += upgrade["value"]
-                            elif upgrade["type"] == "heal":
-                                player.heal(int(player.max_health * upgrade["value"]))
-                            elif upgrade["type"] == "cooldown":
-                                global BASE_ATTACK_COOLDOWN
-                                BASE_ATTACK_COOLDOWN = max(10, BASE_ATTACK_COOLDOWN - upgrade["value"])
-                            player.level_up_pending -= 1
-                            is_level_up_screen = False
-                            break
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
@@ -1202,25 +1188,7 @@ def main_menu():
         info_rect = info_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 40))
         screen.blit(info_surf, info_rect)
 
-        if is_level_up_screen:
-            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 180))
-            screen.blit(overlay, (0, 0))
-            font_lg = pygame.font.Font(None, 74)
-            title = font_lg.render('LEVEL UP! Choose Upgrade:', True, WHITE)
-            screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
-            card_w, card_h, spacing = 250, 350, 50
-            start_x = (WINDOW_WIDTH - (3*card_w + 2*spacing)) // 2
-            start_y = (WINDOW_HEIGHT - card_h) // 2
-            font_sm = pygame.font.Font(None, 36)
-            mx, my = pygame.mouse.get_pos()
-            for idx, upgrade in enumerate(upgrades_offered):
-                rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
-                color = (80, 80, 80) if not rect.collidepoint(mx, my) else (120, 120, 120)
-                pygame.draw.rect(screen, color, rect, border_radius=10)
-                pygame.draw.rect(screen, WHITE, rect, 3, border_radius=10)
-                text = font_sm.render(upgrade['name'], True, WHITE)
-                screen.blit(text, (rect.centerx - text.get_width()//2, rect.centery - text.get_height()//2))
+
 
         pygame.display.flip()
         clock.tick(FPS)
