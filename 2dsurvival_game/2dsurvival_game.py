@@ -16,11 +16,13 @@ class RoomDict(TypedDict):
 # Inicializace Pygame
 pygame.init()
 
-# Konstanty
-WINDOW_WIDTH = 1024
-WINDOW_HEIGHT = 768
+# Konstanty pro borderless fullscreen
+infoObject = pygame.display.Info()
+WINDOW_WIDTH = infoObject.current_w
+WINDOW_HEIGHT = infoObject.current_h
 TITLE = "Survival Game"
 FPS = 60
+ZOOM = 1.5  # Míra přiblížení
 
 # Barvy (použijeme pro textury, ale některé ponecháme pro záložní)
 BLACK = (0, 0, 0)
@@ -85,6 +87,8 @@ class Camera:
         self.rect = pygame.Rect(0, 0, width, height)
         self.width = width
         self.height = height
+        self.view_w = int(WINDOW_WIDTH / ZOOM)
+        self.view_h = int(WINDOW_HEIGHT / ZOOM)
 
     def apply(self, entity):
         if hasattr(entity, 'rect'):
@@ -94,35 +98,24 @@ class Camera:
             return entity.move(self.rect.x, self.rect.y)
 
     def update(self, target):
-        # Deadzone kamery, aby malý pohyb dolů neznamenal okamžitý velký posun
-        x_deadzone = 120
-        y_deadzone = 90
+        # Sleduje hráče přesně - bez mrtvé zóny
+        target_x = -target.rect.centerx + self.view_w // 2
+        target_y = -target.rect.centery + self.view_h // 2
 
-        target_x = -target.rect.centerx + WINDOW_WIDTH // 2
-        target_y = -target.rect.centery + WINDOW_HEIGHT // 2
+        x = target_x
+        y = target_y
 
-        x = self.rect.x
-        y = self.rect.y
-
-        # horizontální posun (idle, ale hladat hranice)
-        if self.width > WINDOW_WIDTH:
-            if target_x > x + x_deadzone:
-                x = min(target_x - x_deadzone, 0)
-            elif target_x < x - x_deadzone:
-                x = max(target_x + x_deadzone, -(self.width - WINDOW_WIDTH))
+        # horizontální posun kamery v rámci hranic světa
+        if self.width > self.view_w:
             x = min(0, x)
-            x = max(-(self.width - WINDOW_WIDTH), x)
+            x = max(-(self.width - self.view_w), x)
         else:
             x = 0
 
-        # vertikální posun (hladina, deadzone)
-        if self.height > WINDOW_HEIGHT:
-            if target_y > y + y_deadzone:
-                y = min(target_y - y_deadzone, 0)
-            elif target_y < y - y_deadzone:
-                y = max(target_y + y_deadzone, -(self.height - WINDOW_HEIGHT))
+        # vertikální posun kamery v rámci hranic světa
+        if self.height > self.view_h:
             y = min(0, y)
-            y = max(-(self.height - WINDOW_HEIGHT), y)
+            y = max(-(self.height - self.view_h), y)
         else:
             y = 0
 
@@ -374,8 +367,9 @@ class Player(pygame.sprite.Sprite):
             
             if camera:
                 mx, my = pygame.mouse.get_pos()
-                world_mx = mx - camera.rect.x
-                world_my = my - camera.rect.y
+                # Zapracování ZOOMu do projekce myši
+                world_mx = (mx / ZOOM) - camera.rect.x
+                world_my = (my / ZOOM) - camera.rect.y
                 dx = world_mx - self.rect.centerx
                 dy = world_my - self.rect.centery
                 self.attack_angle = math.degrees(math.atan2(dy, dx))
@@ -808,7 +802,7 @@ def generate_dungeon(size):
 # Hlavní funkce hry
 def main():
     global WORLD_WIDTH_PX, WORLD_HEIGHT_PX
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
 
@@ -899,7 +893,7 @@ def main():
                     if screen.get_flags() & pygame.FULLSCREEN:
                         screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
                     else:
-                        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN)
+                        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
 
         # Aktualizace
         if player.level_up_pending > 0 and not is_level_up_screen:
@@ -935,23 +929,25 @@ def main():
                     # Zjištění okraje kamery
                     cam_x = -camera.rect.x
                     cam_y = -camera.rect.y
+                    cam_w = int(WINDOW_WIDTH / ZOOM)
+                    cam_h = int(WINDOW_HEIGHT / ZOOM)
                 
                     edge = random.randint(0, 3)
                     offset = ENEMY_SIZE + 20 # kousek mimo obrazovku
                 
                     # Vygenerujeme mimo kameru, aby hráče obkličovali plynule
                     if edge == 0:
-                        sx = random.randint(cam_x - offset, cam_x + WINDOW_WIDTH + offset)
+                        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
                         sy = cam_y - offset
                     elif edge == 1:
-                        sx = cam_x + WINDOW_WIDTH + offset
-                        sy = random.randint(cam_y - offset, cam_y + WINDOW_HEIGHT + offset)
+                        sx = cam_x + cam_w + offset
+                        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
                     elif edge == 2:
-                        sx = random.randint(cam_x - offset, cam_x + WINDOW_WIDTH + offset)
-                        sy = cam_y + WINDOW_HEIGHT + offset
+                        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
+                        sy = cam_y + cam_h + offset
                     else:
                         sx = cam_x - offset
-                        sy = random.randint(cam_y - offset, cam_y + WINDOW_HEIGHT + offset)
+                        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
 
                     # Omezíme v rámci herní mapy
                     sx = max(BLOCK_SIZE, min(sx, WORLD_WIDTH_PX - BLOCK_SIZE))
@@ -1036,45 +1032,54 @@ def main():
             camera.update(player)
 
 
+        # Vytvoření menšího plátna pro renderování hry (pro zoom)
+        cam_w = int(WINDOW_WIDTH / ZOOM)
+        cam_h = int(WINDOW_HEIGHT / ZOOM)
+        display_surface = pygame.Surface((cam_w, cam_h))
+        
         # Kreslení travnatého pozadí
-        screen.fill((34, 110, 34))
+        display_surface.fill((34, 110, 34))
         bg_offset_x = camera.rect.x % 64
         bg_offset_y = camera.rect.y % 64
-        for i in range(-64, WINDOW_WIDTH + 64, 64):
-            for j in range(-64, WINDOW_HEIGHT + 64, 64):
-                pygame.draw.rect(screen, (30, 100, 30), (i + bg_offset_x, j + bg_offset_y, 32, 32))
-                pygame.draw.rect(screen, (30, 100, 30), (i + 32 + bg_offset_x, j + 32 + bg_offset_y, 32, 32))
+        for i in range(-64, cam_w + 64, 64):
+            for j in range(-64, cam_h + 64, 64):
+                pygame.draw.rect(display_surface, (30, 100, 30), (i + bg_offset_x, j + bg_offset_y, 32, 32))
+                pygame.draw.rect(display_surface, (30, 100, 30), (i + 32 + bg_offset_x, j + 32 + bg_offset_y, 32, 32))
 
         # Obdélník pro culling (vykreslení jen na obrazovce)
-        screen_rect = pygame.Rect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT)
+        screen_rect = pygame.Rect(0, 0, cam_w, cam_h)
 
         # Kreslení bloků v kameře
         for block in blocks:
             screen_pos = camera.apply(block)
             if screen_rect.colliderect(screen_pos):
-                screen.blit(block.image, screen_pos)
+                display_surface.blit(block.image, screen_pos)
 
         # Kreslení předmětů
         for item in items:
-            screen.blit(item.image, camera.apply(item))
+            display_surface.blit(item.image, camera.apply(item))
 
         # Kreslení nepřátel
         for enemy in enemies:
             if getattr(enemy, 'hit_flash', 0) > 0 and hasattr(enemy, 'flash_image'):
-                screen.blit(enemy.flash_image, camera.apply(enemy))
+                display_surface.blit(enemy.flash_image, camera.apply(enemy))
             else:
-                screen.blit(enemy.image, camera.apply(enemy))
+                display_surface.blit(enemy.image, camera.apply(enemy))
 
         # Kreslení hráče
         if player.hit_cooldown > 0 and (player.hit_cooldown // 4) % 2 == 0:
             mask = pygame.mask.from_surface(player.image)
             flash_image = mask.to_surface(setcolor=(255, 50, 50, 255), unsetcolor=(0, 0, 0, 0))
-            screen.blit(flash_image, camera.apply(player))
+            display_surface.blit(flash_image, camera.apply(player))
         else:
-            screen.blit(player.image, camera.apply(player))
+            display_surface.blit(player.image, camera.apply(player))
 
         # Kreslení útoku
-        player.draw_attack(screen, camera)
+        player.draw_attack(display_surface, camera)
+        
+        # Škálování kamery na celou obrazovku
+        scaled_surf = pygame.transform.scale(display_surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        screen.blit(scaled_surf, (0, 0))
 
         # UI
         font = pygame.font.Font(None, 36)
@@ -1147,19 +1152,29 @@ def main():
 
 # Hlavní menu
 def main_menu():
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
-    menu_font = pygame.font.Font(None, 72)
-    info_font = pygame.font.Font(None, 28)
+    menu_font = pygame.font.Font(None, 100)
+    info_font = pygame.font.Font(None, 40)
     options = ["Start Game", "Quit"]
     selected = 0
+    
+    # Animace pro pozadí menu
+    particles = []
+    for _ in range(50):
+        particles.append([random.randint(0, WINDOW_WIDTH), random.randint(0, WINDOW_HEIGHT), random.uniform(0.5, 2.0)])
 
     while True:
+        mx, my = pygame.mouse.get_pos()
+        clicked = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                clicked = True
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_UP, pygame.K_w):
                     selected = (selected - 1) % len(options)
@@ -1172,23 +1187,56 @@ def main_menu():
                         pygame.quit()
                         sys.exit()
 
-        screen.fill(BLACK)
+        # Update částic
+        for p in particles:
+            p[1] -= p[2]
+            if p[1] < -10:
+                p[1] = WINDOW_HEIGHT + 10
+                p[0] = random.randint(0, WINDOW_WIDTH)
 
-        title_surf = menu_font.render(TITLE, True, WHITE)
+        screen.fill((20, 30, 20)) # Tmavě zelený nádech
+        
+        for p in particles:
+            pygame.draw.circle(screen, (50, 80, 50), (int(p[0]), int(p[1])), int(p[2]*2))
+
+        # Titulek
+        title_surf = menu_font.render(TITLE, True, (255, 215, 0))
+        title_shadow = menu_font.render(TITLE, True, (0, 0, 0))
         title_rect = title_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 3))
+        screen.blit(title_shadow, title_rect.move(4, 4))
         screen.blit(title_surf, title_rect)
 
+        # Kreslení tlačítek
+        button_width = 300
+        button_height = 80
         for idx, option in enumerate(options):
-            color = YELLOW if idx == selected else WHITE
-            option_surf = menu_font.render(option, True, color)
-            option_rect = option_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + idx * 90))
+            btn_rect = pygame.Rect(0, 0, button_width, button_height)
+            btn_rect.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + idx * 110)
+
+            # Detekce myši
+            if btn_rect.collidepoint(mx, my):
+                selected = idx
+                if clicked:
+                    if options[selected] == "Start Game":
+                        return
+                    else:
+                        pygame.quit()
+                        sys.exit()
+
+            color_bg = (50, 150, 50) if idx == selected else (30, 80, 30)
+            color_text = WHITE if idx == selected else (200, 200, 200)
+
+            pygame.draw.rect(screen, color_bg, btn_rect, border_radius=15)
+            pygame.draw.rect(screen, WHITE, btn_rect, 3, border_radius=15)
+
+            btn_font = pygame.font.Font(None, 60)
+            option_surf = btn_font.render(option, True, color_text)
+            option_rect = option_surf.get_rect(center=btn_rect.center)
             screen.blit(option_surf, option_rect)
 
-        info_surf = info_font.render("Use W/S or Up/Down to choose, Enter to confirm", True, CYAN)
-        info_rect = info_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 40))
+        info_surf = info_font.render("Use W/S/Mouse to choose, Enter/Click to confirm", True, (100, 200, 100))
+        info_rect = info_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 60))
         screen.blit(info_surf, info_rect)
-
-
 
         pygame.display.flip()
         clock.tick(FPS)
