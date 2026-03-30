@@ -24,6 +24,14 @@ TITLE = "Survival Game"
 FPS = 60
 ZOOM = 1.5  # Míra přiblížení
 
+RARITY_COLORS = {
+    "Common": (200, 200, 200),
+    "Uncommon": (50, 205, 50),
+    "Rare": (30, 144, 255),
+    "Epic": (138, 43, 226),
+    "Legendary": (255, 215, 0)
+}
+
 # Barvy (použijeme pro textury, ale některé ponecháme pro záložní)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -49,9 +57,6 @@ ROOM_MAX_SIZE = 10
 PLAYER_WIDTH = 28
 PLAYER_HEIGHT = 28
 PLAYER_SPEED = 5
-PLAYER_JUMP_POWER = -15
-GRAVITY = 0.8
-MAX_FALL_SPEED = 20
 
 # Nepřátelé
 ENEMY_SIZE = 28
@@ -203,6 +208,11 @@ class Item(pygame.sprite.Sprite):
             # XP orb = green glowing circle
             pygame.draw.circle(self.image, (0, 255, 100), (12, 12), 6)
             pygame.draw.circle(self.image, (200, 255, 200), (12, 12), 3)
+        elif self.item_type == 'money':
+            # Zlatá mince
+            pygame.draw.circle(self.image, (255, 215, 0), (12, 12), 6)
+            pygame.draw.circle(self.image, (218, 165, 32), (12, 12), 6, 2)
+            pygame.draw.rect(self.image, (218, 165, 32), (11, 8, 2, 8))
 
     def apply(self, player):
         if self.item_type == 'health':
@@ -214,10 +224,12 @@ class Item(pygame.sprite.Sprite):
             player.keys += 1
         elif self.item_type == 'xp':
             player.add_xp(self.xp_value)
+        elif self.item_type == 'money':
+            player.money += self.xp_value
         self.kill()
 
     def update(self, player=None):
-        if player and self.item_type == 'xp':
+        if player and self.item_type in ['xp', 'money']:
             dx = player.rect.centerx - self.rect.centerx
             dy = player.rect.centery - self.rect.centery
             dist = math.hypot(dx, dy)
@@ -240,6 +252,8 @@ class Player(pygame.sprite.Sprite):
         self.attacking = False
         self.attack_timer = 0
         self.attack_cooldown = 0
+        self.attack_damage = ATTACK_DAMAGE
+        self.money = 0
         self.attack_hitbox = pygame.Rect(0, 0, ATTACK_SIZE, ATTACK_SIZE)
         self.facing_right = True  # pro animaci a útok
         self.attack_angle = 0
@@ -258,8 +272,8 @@ class Player(pygame.sprite.Sprite):
         self.animation_frames = {
             'idle': self.create_idle_frames(),
             'walk': self.create_walk_frames(),
-            'jump': self.create_jump_frames(),
-            'attack': self.create_attack_frames()
+            'attack': self.create_attack_frames(),
+            'death': self.create_death_frames()
         }
         self.current_animation = 'idle'
         self.frame_index = 0
@@ -311,14 +325,6 @@ class Player(pygame.sprite.Sprite):
             frames.append(surf)
         return frames
 
-    def create_jump_frames(self):
-        surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        self.draw_player_base(surf)
-        # surprised eyes
-        pygame.draw.rect(surf, (0, 0, 0), (11, 5, 2, 2))
-        pygame.draw.rect(surf, (0, 0, 0), (17, 5, 2, 2))
-        return [surf]
-
     def create_attack_frames(self):
         surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.draw_player_base(surf)
@@ -327,6 +333,23 @@ class Player(pygame.sprite.Sprite):
         pygame.draw.line(surf, (255, 255, 255), (15, 15), (27, 0), 1)
         pygame.draw.circle(surf, (150, 75, 0), (14, 15), 3)
         return [surf]
+
+    def create_death_frames(self):
+        frames = []
+        base_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.draw_player_base(base_surf)
+        for i in range(10):
+            surf = base_surf.copy()
+            pygame.draw.rect(surf, (0, 0, 0), (10, 6, 3, 3))
+            pygame.draw.rect(surf, (0, 0, 0), (16, 6, 3, 3))
+            pygame.draw.line(surf, (255, 0, 0), (10, 6), (12, 8), 1)
+            pygame.draw.line(surf, (255, 0, 0), (12, 6), (10, 8), 1)
+            pygame.draw.line(surf, (255, 0, 0), (16, 6), (18, 8), 1)
+            pygame.draw.line(surf, (255, 0, 0), (18, 6), (16, 8), 1)
+            surf = pygame.transform.rotate(surf, -i * 10)
+            surf.set_alpha(max(0, 255 - i * 20))
+            frames.append(surf)
+        return frames
 
     def handle_input(self, camera=None):
         keys = pygame.key.get_pressed()
@@ -377,10 +400,6 @@ class Player(pygame.sprite.Sprite):
             else:
                 self.attack_angle = 0 if self.facing_right else 180
 
-    def apply_gravity(self):
-        # Top-down režim: gravitaci nepotřebujeme
-        pass
-
     def move(self, blocks):
         # X
         self.rect.x += self.vel_x
@@ -406,6 +425,16 @@ class Player(pygame.sprite.Sprite):
                     self.vel_y = 0
 
     def update(self, blocks, camera=None):
+        if self.is_dead():
+            self.vel_x = 0
+            self.vel_y = 0
+            self.current_animation = 'death'
+            frames = self.animation_frames[self.current_animation]
+            if int(self.frame_index) < len(frames) - 1:
+                self.frame_index += self.animation_speed
+            self.image = frames[int(self.frame_index)]
+            return
+
         self.handle_input(camera)
         # top-down -> žádná gravitace ve hráči
         self.move(blocks)
@@ -799,6 +828,68 @@ def generate_dungeon(size):
 
     return blocks, items, rooms
 
+def show_death_screen(screen, score, wave, menu_font, info_font):
+    options = ["Retry", "Main Menu"]
+    selected = 0
+    clock = pygame.time.Clock()
+    
+    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 150))
+    screen.blit(overlay, (0, 0))
+
+    while True:
+        mx, my = pygame.mouse.get_pos()
+        clicked = False
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                clicked = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(options)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(options)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return options[selected].lower()
+
+        title_surf = menu_font.render("YOU DIED", True, (255, 50, 50))
+        title_shadow = menu_font.render("YOU DIED", True, (0, 0, 0))
+        title_rect = title_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 4))
+        screen.blit(title_shadow, title_rect.move(4, 4))
+        screen.blit(title_surf, title_rect)
+
+        stats_surf = info_font.render(f"Score: {score}   |   Wave: {wave}", True, WHITE)
+        stats_rect = stats_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 4 + 70))
+        screen.blit(stats_surf, stats_rect)
+
+        button_width = 300
+        button_height = 80
+        for idx, option in enumerate(options):
+            btn_rect = pygame.Rect(0, 0, button_width, button_height)
+            btn_rect.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + idx * 110)
+
+            if btn_rect.collidepoint(mx, my):
+                selected = idx
+                if clicked:
+                    return options[selected].lower()
+
+            color_bg = (150, 50, 50) if idx == selected else (80, 30, 30)
+            color_text = WHITE if idx == selected else (200, 200, 200)
+
+            pygame.draw.rect(screen, color_bg, btn_rect, border_radius=15)
+            pygame.draw.rect(screen, WHITE, btn_rect, 3, border_radius=15)
+
+            btn_font = pygame.font.Font(None, 60)
+            option_surf = btn_font.render(option, True, color_text)
+            option_rect = option_surf.get_rect(center=btn_rect.center)
+            screen.blit(option_surf, option_rect)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
 # Hlavní funkce hry
 def main():
     global WORLD_WIDTH_PX, WORLD_HEIGHT_PX
@@ -845,14 +936,29 @@ def main():
     # Herní smyčka
     running = True
     score: int = 0
+    death_timer = 0
     is_level_up_screen = False
     upgrades_offered = []
     UPGRADES_POOL = [
-        {"name": "Max Health +20", "type": "max_health", "value": 20},
-        {"name": "Damage +5", "type": "damage", "value": 5},
-        {"name": "Speed +0.5", "type": "speed", "value": 0.5},
-        {"name": "Heal 50%", "type": "heal", "value": 0.5},
-        {"name": "Cooldown -4", "type": "cooldown", "value": 4},
+        {"name": "Minor Vitality", "rarity": "Common", "desc": "+5 Max HP", "stats": {"max_health": 5}},
+        {"name": "Minor Strength", "rarity": "Common", "desc": "+1 Damage", "stats": {"damage": 1}},
+        {"name": "Swiftness", "rarity": "Common", "desc": "+0.1 Speed", "stats": {"speed": 0.1}},
+        
+        {"name": "Warrior", "rarity": "Uncommon", "desc": "+2 Damage, -2 Max HP", "stats": {"damage": 2, "max_health": -2}},
+        {"name": "Stamina", "rarity": "Uncommon", "desc": "+10 Max HP, Heal 10%", "stats": {"max_health": 10, "heal_pct": 0.1}},
+        {"name": "Sprinter", "rarity": "Uncommon", "desc": "+0.3 Speed, -1 Dmg", "stats": {"speed": 0.3, "damage": -1}},
+        
+        {"name": "Vampire", "rarity": "Rare", "desc": "Heal 30%, +1 Dmg", "stats": {"heal_pct": 0.3, "damage": 1}},
+        {"name": "Juggernaut", "rarity": "Rare", "desc": "+20 Max HP, -0.1 Speed", "stats": {"max_health": 20, "speed": -0.1}},
+        {"name": "Assassin", "rarity": "Rare", "desc": "+3 Damage, -1 Cooldown", "stats": {"damage": 3, "cooldown": 1}},
+        
+        {"name": "Glass Cannon", "rarity": "Epic", "desc": "+5 Damage, -10 Max HP", "stats": {"damage": 5, "max_health": -10}},
+        {"name": "Tank", "rarity": "Epic", "desc": "+30 Max HP, -0.2 Speed", "stats": {"max_health": 30, "speed": -0.2}},
+        {"name": "Berserker", "rarity": "Epic", "desc": "+4 Dmg, +0.2 Spd, -5 HP", "stats": {"damage": 4, "speed": 0.2, "max_health": -5}},
+
+        {"name": "God of War", "rarity": "Legendary", "desc": "+5 Dmg, +20 HP, +0.3 Spd", "stats": {"damage": 5, "max_health": 20, "speed": 0.3}},
+        {"name": "Time Weaver", "rarity": "Legendary", "desc": "Cooldown -3, +0.5 Spd", "stats": {"cooldown": 3, "speed": 0.5}},
+        {"name": "Immortal", "rarity": "Legendary", "desc": "+50 Max HP, Heal 100%", "stats": {"max_health": 50, "heal_pct": 1.0}}
     ]
     while running:
         clock.tick(FPS)
@@ -867,20 +973,21 @@ def main():
                     for idx, upgrade in enumerate(upgrades_offered):
                         rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
                         if rect.collidepoint(mx, my):
-                            if upgrade["type"] == "max_health":
-                                player.max_health += upgrade["value"]
-                                player.health += upgrade["value"]
-                            elif upgrade["type"] == "damage":
-                                global ATTACK_DAMAGE
-                                ATTACK_DAMAGE += upgrade["value"]
-                            elif upgrade["type"] == "speed":
-                                global PLAYER_SPEED
-                                PLAYER_SPEED += upgrade["value"]
-                            elif upgrade["type"] == "heal":
-                                player.heal(int(player.max_health * upgrade["value"]))
-                            elif upgrade["type"] == "cooldown":
-                                global BASE_ATTACK_COOLDOWN
-                                BASE_ATTACK_COOLDOWN = max(10, BASE_ATTACK_COOLDOWN - upgrade["value"])
+                            for stat, val in upgrade["stats"].items():
+                                if stat == "max_health":
+                                    player.max_health = max(1, player.max_health + val)
+                                    player.health += val
+                                elif stat == "damage":
+                                    player.attack_damage += val
+                                elif stat == "speed":
+                                    global PLAYER_SPEED
+                                    PLAYER_SPEED += val
+                                elif stat == "heal_pct":
+                                    player.heal(int(player.max_health * val))
+                                elif stat == "cooldown":
+                                    global BASE_ATTACK_COOLDOWN
+                                    BASE_ATTACK_COOLDOWN = max(5, BASE_ATTACK_COOLDOWN - val)
+                            
                             player.level_up_pending -= 1
                             is_level_up_screen = False
                             break
@@ -898,7 +1005,15 @@ def main():
         # Aktualizace
         if player.level_up_pending > 0 and not is_level_up_screen:
             is_level_up_screen = True
-            upgrades_offered = random.sample(UPGRADES_POOL, 3)
+            upgrades_offered = []
+            pool_copy = list(UPGRADES_POOL)
+            weights_map = {"Common": 50, "Uncommon": 25, "Rare": 15, "Epic": 8, "Legendary": 2}
+            for _ in range(3):
+                if not pool_copy: break
+                w = [weights_map[u["rarity"]] for u in pool_copy]
+                chosen = random.choices(pool_copy, weights=w, k=1)[0]
+                upgrades_offered.append(chosen)
+                pool_copy.remove(chosen)
 
         if not is_level_up_screen:
             player.update(blocks, camera)
@@ -1008,11 +1123,13 @@ def main():
                 for spr in list(enemies):  # type: ignore
                     if isinstance(spr, Enemy) and spr not in player.hit_enemies and player.attack_hits(spr):  # type: ignore
                         player.hit_enemies.add(spr)
-                        spr.take_damage(ATTACK_DAMAGE * player.damage_boost)
+                        spr.take_damage(player.attack_damage * player.damage_boost)
                         if hasattr(spr, 'apply_knockback'):
                             spr.apply_knockback(player.rect)
                         if spr.is_dead():
                             items.add(Item(spr.rect.x, spr.rect.y, 'xp', xp_value=spr.xp_value))
+                            if random.random() < 0.3:
+                                items.add(Item(spr.rect.x + random.randint(-10, 10), spr.rect.y + random.randint(-10, 10), 'money', xp_value=random.randint(1, 3)))
                             spr.kill()  # type: ignore
                             score += 10  # type: ignore
 
@@ -1025,6 +1142,8 @@ def main():
             for spr in list(enemies):  # type: ignore
                 if isinstance(spr, Enemy) and spr.is_dead():
                     items.add(Item(spr.rect.x, spr.rect.y, 'xp', xp_value=spr.xp_value))
+                    if random.random() < 0.3:
+                        items.add(Item(spr.rect.x + random.randint(-10, 10), spr.rect.y + random.randint(-10, 10), 'money', xp_value=random.randint(1, 3)))
                     spr.kill()  # type: ignore
                     score += 10  # type: ignore
 
@@ -1096,9 +1215,14 @@ def main():
         screen.blit(score_text, (10, 90))
         key_text = font.render(f"Keys: {player.keys}", True, WHITE)
         screen.blit(key_text, (10, 130))
+        money_text = font.render(f"Money: {player.money}", True, (255, 215, 0))
+        screen.blit(money_text, (10, 170))
+        dmg_val = player.attack_damage * player.damage_boost
+        damage_text = font.render(f"Damage: {dmg_val}", True, RED)
+        screen.blit(damage_text, (10, 210))
         if player.damage_boost > 1:
             boost_text = font.render(f"Damage Boost: {player.damage_boost_timer//60}s", True, YELLOW)
-            screen.blit(boost_text, (10, 170))
+            screen.blit(boost_text, (10, 250))
 
         if is_level_up_screen:
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
@@ -1114,41 +1238,39 @@ def main():
             mx, my = pygame.mouse.get_pos()
             for idx, upgrade in enumerate(upgrades_offered):
                 rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
-                color = (80, 80, 80) if not rect.collidepoint(mx, my) else (120, 120, 120)
-                pygame.draw.rect(screen, color, rect, border_radius=10)
-                pygame.draw.rect(screen, WHITE, rect, 3, border_radius=10)
-                text = font_sm.render(upgrade['name'], True, WHITE)
-                screen.blit(text, (rect.centerx - text.get_width()//2, rect.centery - text.get_height()//2))
+                base_col = RARITY_COLORS.get(upgrade["rarity"], WHITE)
+                bg_col = (base_col[0]//4, base_col[1]//4, base_col[2]//4) if not rect.collidepoint(mx, my) else (base_col[0]//3, base_col[1]//3, base_col[2]//3)
+                
+                pygame.draw.rect(screen, bg_col, rect, border_radius=10)
+                pygame.draw.rect(screen, base_col, rect, 4, border_radius=10)
+                
+                name_surf = font_sm.render(upgrade['name'], True, WHITE)
+                screen.blit(name_surf, (rect.centerx - name_surf.get_width()//2, rect.top + 30))
+                
+                rar_surf = pygame.font.Font(None, 28).render(upgrade['rarity'], True, base_col)
+                screen.blit(rar_surf, (rect.centerx - rar_surf.get_width()//2, rect.top + 65))
+                
+                desc_font = pygame.font.Font(None, 24)
+                parts = upgrade['desc'].split(", ")
+                for i, part in enumerate(parts):
+                    d_surf = desc_font.render(part, True, (200, 200, 200))
+                    screen.blit(d_surf, (rect.centerx - d_surf.get_width()//2, rect.centery + (i * 25) - 20))
 
         pygame.display.flip()
 
         # Konec hry (smrt)
         if player.is_dead():
-            print("Game Over! Score:", score)
-            pygame.time.wait(2000)
-            # Restart - nový dungeon
-            blocks, items, rooms = generate_dungeon(DUNGEON_SIZE)
-            max_x = max(room['x'] + room['width'] for room in rooms)
-            max_y = max(room['y'] + room['height'] for room in rooms)
-            WORLD_WIDTH_PX = max_x + BLOCK_SIZE * 5
-            WORLD_HEIGHT_PX = max_y + BLOCK_SIZE * 5
-            start_room = rooms[0]
-            start_x = start_room['x'] + start_room['width'] // 2
-            start_y = start_room['y'] + start_room['height'] // 2
-            player = Player(start_x, start_y)
-            enemies = pygame.sprite.Group()
-            for room in rooms:
-                if random.random() < 0.7:
-                    ex = room['x'] + random.randint(2, (room['width']//BLOCK_SIZE)-3) * BLOCK_SIZE
-                    ey = room['y'] + random.randint(2, (room['height']//BLOCK_SIZE)-3) * BLOCK_SIZE
-                    enemy_type = random.choices(['walker', 'flying'], weights=[0.7, 0.3])[0]
-                    enemy = Enemy(ex, ey, enemy_type)
-                    enemies.add(enemy)
-            spawn_timer = 0
-            current_spawn_interval = ENEMY_SPAWN_INTERVAL
-            wave_number = 1
-            wave_timer = 0
-            total_spawns = 0
+            death_timer += 1
+            if death_timer > 90:  # ~1.5 sec do zobrazení death screenu
+                menu_font = pygame.font.Font(None, 100)
+                info_font = pygame.font.Font(None, 40)
+                action = show_death_screen(screen, score, wave_number, menu_font, info_font)
+                if action == "retry":
+                    return "retry"
+                else:
+                    return "menu"
+                    
+    return "quit"
 
 # Hlavní menu
 def main_menu():
@@ -1182,7 +1304,7 @@ def main_menu():
                     selected = (selected + 1) % len(options)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if options[selected] == "Start Game":
-                        return
+                        return "start"
                     else:
                         pygame.quit()
                         sys.exit()
@@ -1218,7 +1340,7 @@ def main_menu():
                 selected = idx
                 if clicked:
                     if options[selected] == "Start Game":
-                        return
+                        return "start"
                     else:
                         pygame.quit()
                         sys.exit()
@@ -1242,5 +1364,17 @@ def main_menu():
         clock.tick(FPS)
 
 if __name__ == "__main__":
-    main_menu()
-    main()
+    while True:
+        action = main_menu()
+        if action == "quit":
+            break
+        
+        while True:
+            action = main()
+            if action == "retry":
+                continue # Spustí main() znovu
+            elif action == "menu":
+                break # Vylítne zpátky do main_menu() smyčky
+            elif action == "quit":
+                pygame.quit()
+                sys.exit()
