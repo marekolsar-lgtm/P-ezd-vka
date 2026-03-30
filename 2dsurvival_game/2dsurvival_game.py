@@ -68,6 +68,7 @@ ENEMY_SPAWN_ACCELERATION = 0.985  # zrychlování intervalu (max speed za cca 5 
 ENEMY_WAVE_BASE = 1  # začátek po jednom
 ENEMY_WAVE_GROWTH = 0.05  # přidá enemáka každých 20 vln (pomalejší škálování)
 ENEMY_MAX_PER_WAVE = 10  # do maxima 10
+ENEMY_MAX_ON_MAP = 40  # maximální počet nepřátel najednou na mapě (lze změnit)
 WAVE_DURATION = 7200  # 2 minuty při 60 FPS
 
 # Útok
@@ -1039,6 +1040,8 @@ def main():
                 attempts = 0
 
                 while spawned < spawn_count and attempts < spawn_count * 8:
+                    if len(enemies) >= ENEMY_MAX_ON_MAP:
+                        break
                     attempts += 1
                 
                     # Zjištění okraje kamery
