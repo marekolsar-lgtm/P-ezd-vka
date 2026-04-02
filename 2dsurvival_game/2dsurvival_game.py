@@ -555,8 +555,8 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, enemy_type='walker'):
         super().__init__()
         self.enemy_type = enemy_type
-        self.width = ENEMY_SIZE
-        self.height = ENEMY_SIZE
+        self.width = ENEMY_SIZE * 2 if enemy_type == 'boss' else ENEMY_SIZE
+        self.height = ENEMY_SIZE * 2 if enemy_type == 'boss' else ENEMY_SIZE
         self.rect = pygame.Rect(x, y, self.width, self.height)
         self.vel_x = 0
         self.vel_y = 0
@@ -582,6 +582,11 @@ class Enemy(pygame.sprite.Sprite):
             self.xp_value = 5
             self.speed = ENEMY_SPEED * 1.5
             self.damage = 5
+        elif self.enemy_type == 'boss':
+            self.health = 500
+            self.xp_value = 150
+            self.speed = ENEMY_SPEED * 0.8
+            self.damage = 40
         else:
             self.health = 30  # default fallback
             self.xp_value = 5
@@ -628,6 +633,13 @@ class Enemy(pygame.sprite.Sprite):
             pygame.draw.circle(self.image, (200, 200, 255, 180), (14, 14), 10)
             pygame.draw.circle(self.image, (255, 0, 0), (14, 14), 4)
             pygame.draw.circle(self.image, (0, 0, 0), (14, 14), 2)
+        elif self.enemy_type == 'boss':
+            # Boss
+            pygame.draw.rect(self.image, (150, 0, 0), (4, 4, self.width-8, self.height-8), border_radius=8)
+            pygame.draw.rect(self.image, (50, 0, 0), (4, 4, self.width-8, self.height-8), 4, border_radius=8)
+            pygame.draw.circle(self.image, (255, 255, 0), (self.width//3, self.height//3), 6)
+            pygame.draw.circle(self.image, (255, 255, 0), (2*self.width//3, self.height//3), 6)
+            pygame.draw.rect(self.image, (0, 0, 0), (self.width//4, 2*self.height//3, self.width//2, 8))
             
         mask = pygame.mask.from_surface(self.image)
         self.flash_image = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
@@ -670,7 +682,7 @@ class Enemy(pygame.sprite.Sprite):
             self.knockback_timer -= 1
             self.vel_x *= 0.85
             self.vel_y *= 0.85
-        elif self.enemy_type in ['walker', 'tank', 'fast']:
+        elif self.enemy_type in ['walker', 'tank', 'fast', 'boss']:
             # Chodec: pravidelně chase hráče, s malou plynulou korekcí
             if player:
                 dx = player.rect.centerx - self.rect.centerx
@@ -724,6 +736,8 @@ class Enemy(pygame.sprite.Sprite):
                 kb_strength = 4.0
             elif self.enemy_type == 'fast':
                 kb_strength = 16.0
+            elif self.enemy_type == 'boss':
+                kb_strength = 1.0
             self.vel_x = (dx / dist) * kb_strength
             self.vel_y = (dy / dist) * kb_strength
             self.knockback_timer = 15
@@ -1027,6 +1041,34 @@ def main():
                 wave_timer = 0
                 wave_number += 1
                 current_spawn_interval = ENEMY_SPAWN_INTERVAL
+                
+                # Boss spawn na konci vlny
+                cam_x = -camera.rect.x
+                cam_y = -camera.rect.y
+                cam_w = int(WINDOW_WIDTH / ZOOM)
+                cam_h = int(WINDOW_HEIGHT / ZOOM)
+                edge = random.randint(0, 3)
+                offset = ENEMY_SIZE * 3
+                if edge == 0:
+                    bx = random.randint(cam_x - offset, cam_x + cam_w + offset)
+                    by = cam_y - offset
+                elif edge == 1:
+                    bx = cam_x + cam_w + offset
+                    by = random.randint(cam_y - offset, cam_y + cam_h + offset)
+                elif edge == 2:
+                    bx = random.randint(cam_x - offset, cam_x + cam_w + offset)
+                    by = cam_y + cam_h + offset
+                else:
+                    bx = cam_x - offset
+                    by = random.randint(cam_y - offset, cam_y + cam_h + offset)
+                
+                bx = max(BLOCK_SIZE, min(bx, WORLD_WIDTH_PX - BLOCK_SIZE))
+                by = max(BLOCK_SIZE, min(by, WORLD_HEIGHT_PX - BLOCK_SIZE))
+                
+                boss = Enemy(bx, by, 'boss')
+                boss.health += (wave_number - 2) * 200
+                boss.damage += (wave_number - 2) * 10
+                enemies.add(boss)
 
             # Spawn nepřátel v čase (wave style)
             spawn_timer += 1  # type: ignore
