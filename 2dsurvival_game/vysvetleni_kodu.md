@@ -29,12 +29,12 @@ Hrací prvky, tvořící okraje herní "arény".
 - **`draw_texture(self)`**: Namísto načítání `.png` souborů si hra interně přes Pygame geometrii (polygon, linky a kruhy) maluje různé vizuální odchylky na bloky z barev tak, aby vypadaly jako kámen nebo hlína. Random funkce zajištuje rozmanité drážky na kamenech.
 
 ### 3. Třída `Item` (Předmět a sběrné orby)
-Jakýkoli drobný objekt ležící na ploše (health packy, damage boost mečečky, klíče či XP krystaly padající ze zabitých nepřátel).
+Jakýkoli drobný objekt ležící na ploše (health packy, damage boost mečečky, klíče či XP krystaly a zlaté mince padající ze zabitých nepřátel).
 
 - **`__init__(...)`**: Vytváří neviditelný prostor, do kterého umístí specifický povrch, pozici středu obdélníku a zapamatuje síly/xp zkušenosti daného lotu.
-- **`draw_item(self)`**: Každému typu předmětu kreslí jinou ikonu s průsvitným modřinatým podkladem (kříž, zářicí zelený orb z XP kuličky apod.)
+- **`draw_item(self)`**: Každému typu předmětu kreslí jinou ikonu s průsvitným modřinatým podkladem (kříž, zářicí zelený orb z XP kuličky, zlatá mince s `money` apod.)
 - **`apply(self, player)`**: Spustí proceduru ve chvíli, kdy byl zjištěn překryv bounding obdélníku `Item`u s hráčovým `Player`. Předmět samotný doplní zdraví, boost nebo XP a hned nato sám ze hrací plochy zmizí pomocí funkce `self.kill()`.
-- **`update(self, player=None)`**: Kontroluje, jestli je hráč v okruhu např. 150 pixelů a aplikuje "Magnet" tah XP předmětů (čímž se XP samo pohybuje/padá k hráči z určité dálky, jako v tradičních survivor idle hrách).
+- **`update(self, player=None)`**: Kontroluje, jestli je hráč v okruhu např. 150 pixelů a aplikuje "Magnet" tah XP a peněžních předmětů (čímž se XP/peníze samy pohybují/padají k hráči z určité dálky, jako v tradičních survivor idle hrách).
 
 ### 4. Třída `Player` (Hráč a jeho schopnosti)
 Jedná se o nejrobustnější třídu. Hýbe vaší modrou postavičkou na scéně, útočí, přijímá expy.
@@ -52,8 +52,8 @@ Jedná se o nejrobustnější třídu. Hýbe vaší modrou postavičkou na scén
 ### 5. Třída `Enemy` (Generátor zloduchů)
 Rodičovská třída pro chodící i létající nepřátele a poskoky útočící na charakter.
 
-- **`__init__(...)`**: Konfiguruje jednoho ze 4 mobích archetypů (`walker`, `flying`, `tank`, `fast`) - liší se zdravím, zkušenostmi posmrtného lootu a rychlostmi pohybu i poškozením.
-- **`draw_enemy(self)`**: Opět pygame kreslící metoda. Maluje rozdílnou ikonku (např. golem vs stín plášť). Také si přesunou Mask image (bílý maskovaný duplikát určený pro blikající zranění `flash_image`).
+- **`__init__(...)`**: Konfiguruje jednoho z 5 mobích archetypů (`walker`, `flying`, `tank`, `fast`, `boss`) - liší se zdravím, zkušenostmi posmrtného lootu a rychlostmi pohybu i poškozením.
+- **`draw_enemy(self)`**: Opět pygame kreslící metoda. Maluje rozdílnou ikonku (např. golem vs stín plášť, boss). Také si přesunou Mask image (bílý maskovaný duplikát určený pro blikající zranění `flash_image`).
 - **`collide(...)`, `move(...)`**: Identické principy neprostoupení zdí odvozené z hráče s jedním defacto drobným rozdílem - `Enemy` má automatické chování, kdy mu náraz zeď převrací logiku pohybu do odrazu namísto čirého zastavení.
 - **`update(self, blocks, player)`**: Mozek protivníka. Snižuje se mu knockback z blikajícího efektu a aplikuje orientační zjišťování `math.hypot(dx, dy)`. Jestli je nablízko `player`, natankuje k němu svůj vektor rychlosti podle svého mobového chování (letec ignoruje záseky a plynulounce míří zkratou k cíli).
 
@@ -70,8 +70,8 @@ Rodičovská třída pro chodící i létající nepřátele a poskoky útočíc
     - Vyhodnocování inputů event.
     - Kontrola `Level UP!` obrazovky (Zpomalí hru pro případ, že máte zvolit `Max Health +20` , `Damage` apod.).
     - Volá zástupům mobů, itemům a kameře posílat jejich iterované `update()` up-to-date funkce.
-    - Zvyšuje tzv. Timer wave časovače (který dělá hordu mobů intenzivnější a agresivnější díky přidávání intervalů tvz. Spawn pointů).
-    - Definuje ošetření kolizních nárazů (Pokud zbranˇ `player` hitne stvůru - ubere hp nepříteli - přičemž pokud HP stvůry <= 0 zanechá list pro Item 'XP' orbu a zemře) a podobně se vyhodnotí na zemi spadené item buffy.
+    - Zvyšuje tzv. Timer wave časovače (který dělá hordu mobů intenzivnější a agresivnější díky přidávání intervalů tvz. Spawn pointů). Při re-startu timeru po ukončení Wave pošle do scény Bosse.
+    - Definuje ošetření kolizních nárazů (Pokud zbranˇ `player` hitne stvůru - ubere hp nepříteli - přičemž pokud HP stvůry <= 0 zanechá list pro Item 'XP' orbu, popř. s 30% šancí peníze a zemře) a podobně se vyhodnotí na zemi spadené item buffy.
     - Po proběhnutém updatování logiky přichází podbarvení pozadí a kreslicí vrstva `screen.blit().` UI se nanese na displej přes vše a pak se celé okénko vizuální grafiky zobrazí uživateli.
 
 **`main_menu()`**

@@ -21,7 +21,7 @@
 
 ### Nepřátelé
 
-Hra obsahuje čtyři typy nepřátel s různými vlastnostmi:
+Hra obsahuje pět typů nepřátel s různými vlastnostmi:
 
 #### 1. Walker (Chodec) - Zelený Slime/Zombie
 - **Zdraví**: 30 životů (Poškození: 15)
@@ -51,6 +51,13 @@ Hra obsahuje čtyři typy nepřátel s různými vlastnostmi:
 - **Rychlost**: 3 pixely za snímek
 - **Vzhled**: Částečně průhledný bílý/světle modrý kruh s okem
 
+#### 5. Boss - Velký červený golem
+- **Zdraví**: 500 životů (Poškození: 40) - roste s každou další vlnou
+- **XP Hodnota**: 150 XP
+- **Chování**: Větší obdoba tanka, spawnuje se na konci každé vlny za okrajem obrazovky. Nereaguje tolik na knockback.
+- **Rychlost**: 1.6 pixelu za snímek (0.8 násobek základní rychlosti)
+- **Vzhled**: Velký červený blok se žlutýma očima
+
 ### Předměty
 
 #### Health Potion (Léčivý lektvar) - Červený kříž
@@ -68,6 +75,10 @@ Hra obsahuje čtyři typy nepřátel s různými vlastnostmi:
 #### XP Orb - Zelená zářící kulička
 - **Efekt**: Přidá zkušenosti hráči pro postup na novou úroveň (samo se přitahuje z blízkosti)
 - **Spawn**: Padá z mrtvých nepřátel
+
+#### Money (Peníze) - Zlatá mince
+- **Efekt**: Přičte peníze na konto hráči (samo se přitahuje z blízkosti)
+- **Spawn**: 30% šance, že padne po zabití jakéhokoliv nepřítele společně s XP orbem
 
 ## Herní svět
 
@@ -92,6 +103,7 @@ Hra obsahuje čtyři typy nepřátel s různými vlastnostmi:
 - **Počet nepřátel**: Základ 1, pomalu se zvyšuje každou vlnu (max 10 per tick)
 - **Spawn radius**: Minimálně 300 pixelů od hráče, spawny probíhají těsně za hranicí kamery
 - **Druhy nepřátel**: Mění se s rostoucím číslem vlny, objevují se různé variace walkerů, letců, tanků apod.
+- **Boss event**: Na konci každé vlny (cca 2 minuty) se za okrajem aktuální polohy kamery objeví obrovský Boss s buffovanými statistikami.
 
 ### Kolize a poškození
 - **Hráč vs Nepřítel**: Kontakt způsobí poškození (podle typu nepřítele) a lehký odraz hráče (knockback)
@@ -99,7 +111,7 @@ Hra obsahuje čtyři typy nepřátel s různými vlastnostmi:
 - **Imunita**: 30 snímků po zásahu hráče
 
 ### Skóre a Progrese
-- **Za zabití nepřítele**: +10 bodů do skóre a padá z něj XP Orb s hodnotou podle typu nepřítele
+- **Za zabití nepřítele**: +10 bodů do skóre, padá XP Orb podle typu nepřítele a s 30% šancí zlatá mince (Money).
 - **Level up**: Při dosažení hranice potřebných XP získá hráč novou úroveň, čímž se zdvihne množství XP potřebné pro další úroveň (x1.5) a otevře se speciální menu s možností vybrat si jeden upgrade v reálném čase.
 - **Žádný trest za smrt**: Hra spadne zpět na začátek, restartuje se nový dungeon od vlny 1
 
@@ -158,7 +170,7 @@ python 2dsurvival_game.py
 - [ ] Achievement systém
 - [ ] Multiplayer mód
 - [ ] Level editor
-- [ ] Boss fights
+- [x] Boss fights
 - [ ] Upgrade systém pomocí klíčů
 
 ### Optimalizace
