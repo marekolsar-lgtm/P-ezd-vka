@@ -525,9 +525,10 @@ class Player(pygame.sprite.Sprite):
             
             if end_rad > start_rad + 0.05:
                 rect = pygame.Rect(0, 0, arc_radius*2, arc_radius*2)
-                pygame.draw.arc(swoosh_surf, (255, 50, 0, 80), rect, start_rad, end_rad, int(arc_radius * 0.5))
-                pygame.draw.arc(swoosh_surf, (255, 150, 0, 150), rect, start_rad, end_rad, int(arc_radius * 0.25))
-                pygame.draw.arc(swoosh_surf, (255, 255, 255, 255), rect, start_rad, end_rad, 4)
+                # Bílý efekt s rostoucí intenzitou k okraji
+                pygame.draw.arc(swoosh_surf, (255, 255, 255, 60), rect, start_rad, end_rad, int(arc_radius * 0.6))
+                pygame.draw.arc(swoosh_surf, (255, 255, 255, 130), rect, start_rad, end_rad, int(arc_radius * 0.3))
+                pygame.draw.arc(swoosh_surf, (255, 255, 255, 255), rect, start_rad, end_rad, max(4, int(arc_radius * 0.1)))
             
             screen.blit(swoosh_surf, swoosh_surf.get_rect(center=center))
 
