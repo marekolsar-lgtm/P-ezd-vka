@@ -512,23 +512,82 @@ class Player(pygame.sprite.Sprite):
             center = camera.apply(self).center
             arc_radius = ATTACK_SIZE * 1.5
             
-            swoosh_surf = pygame.Surface((arc_radius*2, arc_radius*2), pygame.SRCALPHA)
+            # Větší plocha pro vykreslení srpu
+            surf_size = int(arc_radius * 3)
+            swoosh_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
             
             progress = 1.0 - (self.attack_timer / ATTACK_DURATION)
             
             visual_attack_angle = -self.attack_angle
-            start_deg = visual_attack_angle - 90
-            end_deg = start_deg + 180 * progress
-                
-            start_rad = math.radians(start_deg)
-            end_rad = math.radians(end_deg)
+            start_deg = visual_attack_angle - 100
             
-            if end_rad > start_rad + 0.05:
-                rect = pygame.Rect(0, 0, arc_radius*2, arc_radius*2)
-                # Bílý efekt s rostoucí intenzitou k okraji
-                pygame.draw.arc(swoosh_surf, (255, 255, 255, 60), rect, start_rad, end_rad, int(arc_radius * 0.6))
-                pygame.draw.arc(swoosh_surf, (255, 255, 255, 130), rect, start_rad, end_rad, int(arc_radius * 0.3))
-                pygame.draw.arc(swoosh_surf, (255, 255, 255, 255), rect, start_rad, end_rad, max(4, int(arc_radius * 0.1)))
+            # Celkový úhel švihu
+            swing_extent = 200
+            current_extent = swing_extent * progress
+            end_deg = start_deg + current_extent
+            
+            points_outer = []
+            points_inner = []
+            
+            scx = surf_size // 2
+            scy = surf_size // 2
+            
+            segments = max(5, int(current_extent / 10))
+            if segments > 0 and current_extent > 0:
+                for i in range(segments + 1):
+                    t = i / segments
+                    angle_deg = start_deg + t * current_extent
+                    angle_rad = math.radians(angle_deg)
+                    
+                    # Profil tloušťky
+                    thickness_factor = math.sin(t * math.pi)
+                    
+                    # Tloušťka srpku (rozšiřuje se a zužuje)
+                    current_thickness = arc_radius * 0.4 * thickness_factor
+                    
+                    # Vnější oblouk
+                    ox = scx + math.cos(angle_rad) * arc_radius
+                    oy = scy + math.sin(angle_rad) * arc_radius
+                    points_outer.append((ox, oy))
+                    
+                    # Vnitřní oblouk
+                    ix = scx + math.cos(angle_rad) * (arc_radius - current_thickness)
+                    iy = scy + math.sin(angle_rad) * (arc_radius - current_thickness)
+                    points_inner.append((ix, iy))
+                
+                points_inner.reverse()
+                slash_polygon = points_outer + points_inner
+                
+                # Barva podle boostu útoku
+                base_color = (100, 200, 255) # Cyan/modrá záře
+                if getattr(self, 'damage_boost_timer', 0) > 0:
+                    base_color = (255, 100, 50) # Zlatá/oranžová při boostu
+                
+                alpha_glow = max(0, int(200 * (1 - progress)))
+                pygame.draw.polygon(swoosh_surf, (*base_color, alpha_glow), slash_polygon)
+                
+                # Bílý střed srpku pro ostřejší hranu
+                points_core_outer = []
+                points_core_inner = []
+                for i in range(segments + 1):
+                    t = i / segments
+                    angle_deg = start_deg + t * current_extent
+                    angle_rad = math.radians(angle_deg)
+                    thickness_factor = math.sin(t * math.pi)
+                    
+                    core_thickness = arc_radius * 0.15 * thickness_factor
+                    
+                    ox = scx + math.cos(angle_rad) * (arc_radius - 2)
+                    oy = scy + math.sin(angle_rad) * (arc_radius - 2)
+                    ix = scx + math.cos(angle_rad) * (arc_radius - 2 - core_thickness)
+                    iy = scy + math.sin(angle_rad) * (arc_radius - 2 - core_thickness)
+                    
+                    points_core_outer.append((ox, oy))
+                    points_core_inner.insert(0, (ix, iy))
+                    
+                core_polygon = points_core_outer + points_core_inner
+                alpha_core = max(0, min(255, int(255 * (1.2 - progress))))
+                pygame.draw.polygon(swoosh_surf, (255, 255, 255, alpha_core), core_polygon)
             
             screen.blit(swoosh_surf, swoosh_surf.get_rect(center=center))
 
