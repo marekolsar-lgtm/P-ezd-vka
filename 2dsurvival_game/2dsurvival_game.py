@@ -283,30 +283,60 @@ class Player(pygame.sprite.Sprite):
 
     def draw_player_base(self, surf, is_walking=False, step=0):
         surf.fill((0, 0, 0, 0))
-        # Shadow
-        pygame.draw.ellipse(surf, (0, 0, 0, 80), (4, 22, 20, 6))
         
-        # Legs
-        leg_y = 20
-        leg1_y = leg_y - (2 if is_walking and step % 2 == 0 else 0)
-        leg2_y = leg_y - (2 if is_walking and step % 2 == 1 else 0)
-        pygame.draw.rect(surf, (30, 30, 100), (8, leg1_y, 4, 8))
-        pygame.draw.rect(surf, (30, 30, 100), (16, leg2_y, 4, 8))
+        # Stín pod postavou (dynamický podle pohybu)
+        shadow_w = 20 if not is_walking else 22
+        shadow_x = 4 if not is_walking else 3
+        pygame.draw.ellipse(surf, (0, 0, 0, 80), (shadow_x, 23, shadow_w, 5))
         
-        # Body
-        pygame.draw.rect(surf, (0, 120, 255), (6, 10, 16, 12), border_radius=3)
-        pygame.draw.rect(surf, (150, 75, 0), (6, 18, 16, 3)) # Belt
-        pygame.draw.rect(surf, (255, 215, 0), (12, 17, 4, 5)) # Buckle
+        # Nohy s animací chůze (kalhoty a boty)
+        leg_y = 19
+        leg1_y = leg_y - (2 if is_walking and step in [0, 1] else 0)
+        leg2_y = leg_y - (2 if is_walking and step in [2, 3] else 0)
         
-        # Head
-        pygame.draw.rect(surf, (255, 224, 189), (8, 2, 12, 10), border_radius=4)
-        pygame.draw.rect(surf, (100, 50, 0), (7, 1, 14, 4), border_radius=2) # Hair
+        # Levá noha (zadní)
+        pygame.draw.rect(surf, (20, 20, 80), (8, leg1_y, 4, 7))
+        pygame.draw.rect(surf, (50, 50, 50), (7, leg1_y + 5, 6, 3), border_radius=1) # bota
         
-        # Eyes
-        pygame.draw.rect(surf, (255, 255, 255), (10, 6, 3, 3))
-        pygame.draw.rect(surf, (255, 255, 255), (16, 6, 3, 3))
-        pygame.draw.rect(surf, (0, 0, 0), (11, 7, 2, 2))
-        pygame.draw.rect(surf, (0, 0, 0), (17, 7, 2, 2))
+        # Pravá noha (přední)
+        pygame.draw.rect(surf, (20, 20, 80), (16, leg2_y, 4, 7))
+        pygame.draw.rect(surf, (50, 50, 50), (15, leg2_y + 5, 6, 3), border_radius=1) # bota
+        
+        # Zadní ruka (za tělem)
+        arm1_y = 12 - (1 if is_walking and step in [2, 3] else 0)
+        pygame.draw.rect(surf, (0, 80, 180), (4, arm1_y, 4, 7), border_radius=2)
+        pygame.draw.rect(surf, (255, 224, 189), (4, arm1_y + 5, 4, 3), border_radius=1) # ruka
+        
+        # Tělo
+        pygame.draw.rect(surf, (0, 100, 220), (6, 10, 16, 10), border_radius=3)
+        pygame.draw.rect(surf, (0, 80, 180), (6, 15, 16, 5), border_bottom_left_radius=3, border_bottom_right_radius=3) # stín
+        
+        # Opasek
+        pygame.draw.rect(surf, (90, 45, 0), (6, 17, 16, 3)) 
+        pygame.draw.rect(surf, (255, 215, 0), (12, 16, 4, 5), border_radius=1) # spona
+        pygame.draw.rect(surf, (200, 150, 0), (13, 17, 2, 3))
+        
+        # Hlava
+        pygame.draw.rect(surf, (255, 224, 189), (7, 2, 14, 11), border_radius=4)
+        pygame.draw.rect(surf, (230, 190, 150), (7, 9, 14, 4), border_bottom_left_radius=4, border_bottom_right_radius=4) # stín na tváři
+        
+        # Vlasy
+        pygame.draw.rect(surf, (80, 40, 0), (6, 0, 16, 4), border_top_left_radius=5, border_top_right_radius=5)
+        pygame.draw.rect(surf, (80, 40, 0), (6, 3, 3, 5))
+        pygame.draw.rect(surf, (80, 40, 0), (19, 3, 3, 4))
+        pygame.draw.rect(surf, (100, 50, 0), (8, 0, 12, 2), border_radius=1) # odlesk
+        
+        # Oči
+        pygame.draw.rect(surf, (255, 255, 255), (9, 6, 4, 4), border_radius=1)
+        pygame.draw.rect(surf, (255, 255, 255), (15, 6, 4, 4), border_radius=1)
+        
+        pygame.draw.rect(surf, (20, 20, 30), (10, 7, 2, 2)) # zornička
+        pygame.draw.rect(surf, (20, 20, 30), (16, 7, 2, 2)) # zornička
+        
+        # Přední ruka (před tělem)
+        arm2_y = 12 - (1 if is_walking and step in [0, 1] else 0)
+        pygame.draw.rect(surf, (0, 120, 255), (20, arm2_y, 4, 7), border_radius=2)
+        pygame.draw.rect(surf, (255, 224, 189), (20, arm2_y + 5, 4, 3), border_radius=1) # ruka
 
     def create_idle_frames(self):
         frames = []
@@ -329,10 +359,12 @@ class Player(pygame.sprite.Sprite):
     def create_attack_frames(self):
         surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self.draw_player_base(surf)
-        # sword
-        pygame.draw.line(surf, (200, 200, 200), (14, 15), (26, 0), 4)
-        pygame.draw.line(surf, (255, 255, 255), (15, 15), (27, 0), 1)
-        pygame.draw.circle(surf, (150, 75, 0), (14, 15), 3)
+        # vylepšený meč
+        pygame.draw.line(surf, (160, 160, 170), (16, 16), (27, 2), 4)
+        pygame.draw.line(surf, (255, 255, 255), (16, 16), (26, 3), 2)
+        pygame.draw.polygon(surf, (218, 165, 32), [(14, 13), (18, 17), (16, 19), (12, 15)]) # záštita
+        pygame.draw.line(surf, (139, 69, 19), (15, 16), (11, 20), 3) # rukojeť
+        pygame.draw.circle(surf, (255, 215, 0), (11, 20), 2) # hlavice
         return [surf]
 
     def create_death_frames(self):
@@ -341,12 +373,14 @@ class Player(pygame.sprite.Sprite):
         self.draw_player_base(base_surf)
         for i in range(10):
             surf = base_surf.copy()
-            pygame.draw.rect(surf, (0, 0, 0), (10, 6, 3, 3))
-            pygame.draw.rect(surf, (0, 0, 0), (16, 6, 3, 3))
-            pygame.draw.line(surf, (255, 0, 0), (10, 6), (12, 8), 1)
-            pygame.draw.line(surf, (255, 0, 0), (12, 6), (10, 8), 1)
-            pygame.draw.line(surf, (255, 0, 0), (16, 6), (18, 8), 1)
-            pygame.draw.line(surf, (255, 0, 0), (18, 6), (16, 8), 1)
+            # Překrytí očí
+            pygame.draw.rect(surf, (0, 0, 0), (9, 6, 4, 4))
+            pygame.draw.rect(surf, (0, 0, 0), (15, 6, 4, 4))
+            # Křížky místo očí
+            pygame.draw.line(surf, (255, 0, 0), (9, 6), (12, 9), 2)
+            pygame.draw.line(surf, (255, 0, 0), (12, 6), (9, 9), 2)
+            pygame.draw.line(surf, (255, 0, 0), (15, 6), (18, 9), 2)
+            pygame.draw.line(surf, (255, 0, 0), (18, 6), (15, 9), 2)
             surf = pygame.transform.rotate(surf, -i * 10)
             surf.set_alpha(max(0, 255 - i * 20))
             frames.append(surf)
