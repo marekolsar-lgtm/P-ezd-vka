@@ -2,7 +2,7 @@ import pygame
 import random
 import math
 import sys
-from typing import TypedDict, List, Tuple, cast
+from typing import TypedDict, List, Tuple
 
 class RoomDict(TypedDict):
     x: int
@@ -507,18 +507,7 @@ class Player(pygame.sprite.Sprite):
         if not self.facing_right:
             self.image = pygame.transform.flip(self.image, True, False)
 
-        # Hraniční kontrola světa (prevence pádu mimo mapu)
-        if hasattr(self, 'rect'):
-            if self.rect.left < 0:
-                self.rect.left = 0
-                self.vel_x = 0
-            if self.rect.right > WORLD_WIDTH_PX:
-                self.rect.right = WORLD_WIDTH_PX
-                self.vel_x = 0
-            if self.rect.top < 0:
-                self.rect.top = 0
-                self.vel_y = 0
-            # Necháme hráče spadnout aby se mohl resetovat
+        # Hraniční kontrola světa je v main()
 
     def point_in_swing(self, px, py):
         ox, oy = self.rect.center
@@ -738,9 +727,7 @@ class Enemy(pygame.sprite.Sprite):
         mask = pygame.mask.from_surface(self.image)
         self.flash_image = mask.to_surface(setcolor=(255, 255, 255, 255), unsetcolor=(0, 0, 0, 0))
 
-    def apply_gravity(self):
-        # top-down režim; nepřítel nepotřebuje gravitační sílu
-        pass
+
 
     def move(self, blocks):
         # X
@@ -805,16 +792,11 @@ class Enemy(pygame.sprite.Sprite):
                 else:
                     self.vel_x = 0
                     self.vel_y = 0
-                # Omezení rychlosti
-                self.vel_x = max(-self.speed, min(self.speed, self.vel_x))
-                self.vel_y = max(-self.speed, min(self.speed, self.vel_y))
 
-        self.apply_gravity()
+
         self.move(blocks)
 
-        # Pokud nepřítel vyletí mimo svět, odstraníme ho
-        if self.rect.right < 0 or self.rect.left > WORLD_WIDTH_PX or self.rect.top < 0 or self.rect.top > WORLD_HEIGHT_PX + BLOCK_SIZE*5:
-            self.kill()
+
 
     def take_damage(self, amount):
         self.health -= amount
@@ -858,7 +840,7 @@ def generate_dungeon(size):
             })
 
     # Propojení místností chodbami (jednoduché: každá místnost s pravým a dolním sousedem)
-    connections = []
+
     for room in rooms:
         # Pravý soused
         right_room = next((r for r in rooms if r['grid_x'] == room['grid_x']+1 and r['grid_y'] == room['grid_y']), None)
@@ -868,7 +850,7 @@ def generate_dungeon(size):
             door2 = (right_room['x'], right_room['y'] + ((right_room['height'] // 2) // BLOCK_SIZE) * BLOCK_SIZE)
             room['doors'].append(door1)
             right_room['doors'].append(door2)
-            connections.append((door1, door2))
+
 
         # Dolní soused
         down_room = next((r for r in rooms if r['grid_x'] == room['grid_x'] and r['grid_y'] == room['grid_y']+1), None)
@@ -878,11 +860,11 @@ def generate_dungeon(size):
             door2 = (door_x, down_room['y'])
             room['doors'].append(door1)
             down_room['doors'].append(door2)
-            connections.append((door1, door2))
+
 
     # Místnost už nerenderujeme jako složitý dungeon; děláme otevřený travnatý svět s border stěnami.
     blocks = pygame.sprite.Group()
-    block_map = {}
+    placed = set()
 
     min_x = min(room['x'] for room in rooms)
     min_y = min(room['y'] for room in rooms)
@@ -893,54 +875,69 @@ def generate_dungeon(size):
     y_top = min_y - BLOCK_SIZE
     y_bottom = max_y + BLOCK_SIZE
     for bx in range(min_x - BLOCK_SIZE, max_x + 2*BLOCK_SIZE, BLOCK_SIZE):
-        block = Block(bx, y_top, 'stone')
-        blocks.add(block)
-        block_map[(bx, y_top)] = block
-        block = Block(bx, y_bottom, 'stone')
-        blocks.add(block)
-        block_map[(bx, y_bottom)] = block
+        blocks.add(Block(bx, y_top, 'stone'))
+        placed.add((bx, y_top))
+        blocks.add(Block(bx, y_bottom, 'stone'))
+        placed.add((bx, y_bottom))
 
     # Svislé stěny vlevo a vpravo
     x_left = min_x - BLOCK_SIZE
     x_right = max_x + BLOCK_SIZE
     for by in range(min_y - BLOCK_SIZE, max_y + 2*BLOCK_SIZE, BLOCK_SIZE):
-        block = Block(x_left, by, 'stone')
-        blocks.add(block)
-        block_map[(x_left, by)] = block
-        block = Block(x_right, by, 'stone')
-        blocks.add(block)
-        block_map[(x_right, by)] = block
+        blocks.add(Block(x_left, by, 'stone'))
+        placed.add((x_left, by))
+        blocks.add(Block(x_right, by, 'stone'))
+        placed.add((x_right, by))
 
     # Přidáme hranice světa (jednobloční zdi) tak, aby hráč nemohl vypadnout ven
-    min_x = min(room['x'] for room in rooms)
-    min_y = min(room['y'] for room in rooms)
-    max_x = max(room['x'] + room['width'] for room in rooms)
-    max_y = max(room['y'] + room['height'] for room in rooms)
+
 
     # Vodorovné hrany
     for bx in range(min_x - BLOCK_SIZE, max_x + BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE):
         for by in [min_y - BLOCK_SIZE, max_y + BLOCK_SIZE]:
-            if (bx, by) not in block_map:
-                block = Block(bx, by, 'stone')
-                blocks.add(block)
-                block_map[(bx, by)] = block
+            if (bx, by) not in placed:
+                blocks.add(Block(bx, by, 'stone'))
+                placed.add((bx, by))
 
     # Svislé hrany
     for by in range(min_y - BLOCK_SIZE, max_y + BLOCK_SIZE + BLOCK_SIZE, BLOCK_SIZE):
         for bx in [min_x - BLOCK_SIZE, max_x + BLOCK_SIZE]:
-            if (bx, by) not in block_map:
-                block = Block(bx, by, 'stone')
-                blocks.add(block)
-                block_map[(bx, by)] = block
+            if (bx, by) not in placed:
+                blocks.add(Block(bx, by, 'stone'))
+                placed.add((bx, by))
 
     items = pygame.sprite.Group()
 
     return blocks, items, rooms
 
+def spawn_at_screen_edge(camera, offset):
+    """Vrátí náhodnou pozici za okrajem kamery."""
+    cam_x = -camera.rect.x
+    cam_y = -camera.rect.y
+    cam_w = int(WINDOW_WIDTH / ZOOM)
+    cam_h = int(WINDOW_HEIGHT / ZOOM)
+    edge = random.randint(0, 3)
+    if edge == 0:
+        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
+        sy = cam_y - offset
+    elif edge == 1:
+        sx = cam_x + cam_w + offset
+        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
+    elif edge == 2:
+        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
+        sy = cam_y + cam_h + offset
+    else:
+        sx = cam_x - offset
+        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
+    sx = max(BLOCK_SIZE, min(sx, WORLD_WIDTH_PX - BLOCK_SIZE))
+    sy = max(BLOCK_SIZE, min(sy, WORLD_HEIGHT_PX - BLOCK_SIZE))
+    return sx, sy
+
 def show_death_screen(screen, score, wave, menu_font, info_font):
     options = ["Retry", "Main Menu"]
     selected = 0
     clock = pygame.time.Clock()
+    btn_font = pygame.font.Font(None, 60)
     
     overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 150))
@@ -991,7 +988,6 @@ def show_death_screen(screen, score, wave, menu_font, info_font):
             pygame.draw.rect(screen, color_bg, btn_rect, border_radius=15)
             pygame.draw.rect(screen, WHITE, btn_rect, 3, border_radius=15)
 
-            btn_font = pygame.font.Font(None, 60)
             option_surf = btn_font.render(option, True, color_text)
             option_rect = option_surf.get_rect(center=btn_rect.center)
             screen.blit(option_surf, option_rect)
@@ -1005,6 +1001,13 @@ def main():
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
+
+    # Cachované fonty (vytvořené jednou, ne každý snímek)
+    font_ui = pygame.font.Font(None, 36)
+    font_lg = pygame.font.Font(None, 74)
+    font_sm = pygame.font.Font(None, 36)
+    font_rar = pygame.font.Font(None, 28)
+    font_desc = pygame.font.Font(None, 24)
 
     # Generování dungeonu
     blocks, items, rooms = generate_dungeon(DUNGEON_SIZE)
@@ -1137,28 +1140,7 @@ def main():
                 current_spawn_interval = ENEMY_SPAWN_INTERVAL
                 
                 # Boss spawn na konci vlny
-                cam_x = -camera.rect.x
-                cam_y = -camera.rect.y
-                cam_w = int(WINDOW_WIDTH / ZOOM)
-                cam_h = int(WINDOW_HEIGHT / ZOOM)
-                edge = random.randint(0, 3)
-                offset = ENEMY_SIZE * 3
-                if edge == 0:
-                    bx = random.randint(cam_x - offset, cam_x + cam_w + offset)
-                    by = cam_y - offset
-                elif edge == 1:
-                    bx = cam_x + cam_w + offset
-                    by = random.randint(cam_y - offset, cam_y + cam_h + offset)
-                elif edge == 2:
-                    bx = random.randint(cam_x - offset, cam_x + cam_w + offset)
-                    by = cam_y + cam_h + offset
-                else:
-                    bx = cam_x - offset
-                    by = random.randint(cam_y - offset, cam_y + cam_h + offset)
-                
-                bx = max(BLOCK_SIZE, min(bx, WORLD_WIDTH_PX - BLOCK_SIZE))
-                by = max(BLOCK_SIZE, min(by, WORLD_HEIGHT_PX - BLOCK_SIZE))
-                
+                bx, by = spawn_at_screen_edge(camera, ENEMY_SIZE * 3)
                 boss = Enemy(bx, by, 'boss')
                 boss.health += (wave_number - 2) * 200
                 boss.damage += (wave_number - 2) * 10
@@ -1180,32 +1162,7 @@ def main():
                         break
                     attempts += 1
                 
-                    # Zjištění okraje kamery
-                    cam_x = -camera.rect.x
-                    cam_y = -camera.rect.y
-                    cam_w = int(WINDOW_WIDTH / ZOOM)
-                    cam_h = int(WINDOW_HEIGHT / ZOOM)
-                
-                    edge = random.randint(0, 3)
-                    offset = ENEMY_SIZE + 20 # kousek mimo obrazovku
-                
-                    # Vygenerujeme mimo kameru, aby hráče obkličovali plynule
-                    if edge == 0:
-                        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
-                        sy = cam_y - offset
-                    elif edge == 1:
-                        sx = cam_x + cam_w + offset
-                        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
-                    elif edge == 2:
-                        sx = random.randint(cam_x - offset, cam_x + cam_w + offset)
-                        sy = cam_y + cam_h + offset
-                    else:
-                        sx = cam_x - offset
-                        sy = random.randint(cam_y - offset, cam_y + cam_h + offset)
-
-                    # Omezíme v rámci herní mapy
-                    sx = max(BLOCK_SIZE, min(sx, WORLD_WIDTH_PX - BLOCK_SIZE))
-                    sy = max(BLOCK_SIZE, min(sy, WORLD_HEIGHT_PX - BLOCK_SIZE))
+                    sx, sy = spawn_at_screen_edge(camera, ENEMY_SIZE + 20)
 
                     if math.hypot(sx - player.rect.centerx, sy - player.rect.centery) < ENEMY_SPAWN_RADIUS_MIN:  # type: ignore
                         continue
@@ -1234,7 +1191,8 @@ def main():
                 player.vel_x = 0
                 player.vel_y = 0
 
-            for spr in enemies:  # type: ignore
+            # Odstranění nepřátel mimo svět
+            for spr in list(enemies):  # type: ignore
                 if isinstance(spr, Enemy):
                     if (spr.rect.right < 0 or spr.rect.left > WORLD_WIDTH_PX or
                         spr.rect.top < 0 or spr.rect.bottom > WORLD_HEIGHT_PX + 5*BLOCK_SIZE):
@@ -1277,14 +1235,7 @@ def main():
             for item in item_hits:
                 item.apply(player)
 
-            # Smazání mrtvých nepřátel
-            for spr in list(enemies):  # type: ignore
-                if isinstance(spr, Enemy) and spr.is_dead():
-                    items.add(Item(spr.rect.x, spr.rect.y, 'xp', xp_value=spr.xp_value))
-                    if random.random() < 0.3:
-                        items.add(Item(spr.rect.x + random.randint(-10, 10), spr.rect.y + random.randint(-10, 10), 'money', xp_value=random.randint(1, 3)))
-                    spr.kill()  # type: ignore
-                    score += 10  # type: ignore
+
 
             # Kamera
             camera.update(player)
@@ -1340,40 +1291,38 @@ def main():
         screen.blit(scaled_surf, (0, 0))
 
         # UI
-        font = pygame.font.Font(None, 36)
+
         wave_time_left = (WAVE_DURATION - wave_timer) // FPS
         minutes = wave_time_left // 60
         seconds = wave_time_left % 60
-        wave_text = font.render(f"Wave: {wave_number} ({minutes}:{seconds:02d})", True, ORANGE)
+        wave_text = font_ui.render(f"Wave: {wave_number} ({minutes}:{seconds:02d})", True, ORANGE)
         screen.blit(wave_text, (WINDOW_WIDTH // 2 - wave_text.get_width() // 2, 10))
-        level_text = font.render(f"Level: {player.level} ({player.xp}/{player.max_xp} XP)", True, CYAN)
+        level_text = font_ui.render(f"Level: {player.level} ({player.xp}/{player.max_xp} XP)", True, CYAN)
         screen.blit(level_text, (10, 10))
-        health_text = font.render(f"Health: {player.health}/{player.max_health}", True, WHITE)
+        health_text = font_ui.render(f"Health: {player.health}/{player.max_health}", True, WHITE)
         screen.blit(health_text, (10, 50))
-        score_text = font.render(f"Score: {score}", True, WHITE)
+        score_text = font_ui.render(f"Score: {score}", True, WHITE)
         screen.blit(score_text, (10, 90))
-        key_text = font.render(f"Keys: {player.keys}", True, WHITE)
+        key_text = font_ui.render(f"Keys: {player.keys}", True, WHITE)
         screen.blit(key_text, (10, 130))
-        money_text = font.render(f"Money: {player.money}", True, (255, 215, 0))
+        money_text = font_ui.render(f"Money: {player.money}", True, (255, 215, 0))
         screen.blit(money_text, (10, 170))
         dmg_val = player.attack_damage * player.damage_boost
-        damage_text = font.render(f"Damage: {dmg_val}", True, RED)
+        damage_text = font_ui.render(f"Damage: {dmg_val}", True, RED)
         screen.blit(damage_text, (10, 210))
         if player.damage_boost > 1:
-            boost_text = font.render(f"Damage Boost: {player.damage_boost_timer//60}s", True, YELLOW)
+            boost_text = font_ui.render(f"Damage Boost: {player.damage_boost_timer//60}s", True, YELLOW)
             screen.blit(boost_text, (10, 250))
 
         if is_level_up_screen:
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 180))
             screen.blit(overlay, (0, 0))
-            font_lg = pygame.font.Font(None, 74)
             title = font_lg.render('LEVEL UP! Choose Upgrade:', True, WHITE)
             screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
             card_w, card_h, spacing = 250, 350, 50
             start_x = (WINDOW_WIDTH - (3*card_w + 2*spacing)) // 2
             start_y = (WINDOW_HEIGHT - card_h) // 2
-            font_sm = pygame.font.Font(None, 36)
             mx, my = pygame.mouse.get_pos()
             for idx, upgrade in enumerate(upgrades_offered):
                 rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
@@ -1386,13 +1335,11 @@ def main():
                 name_surf = font_sm.render(upgrade['name'], True, WHITE)
                 screen.blit(name_surf, (rect.centerx - name_surf.get_width()//2, rect.top + 30))
                 
-                rar_surf = pygame.font.Font(None, 28).render(upgrade['rarity'], True, base_col)
+                rar_surf = font_rar.render(upgrade['rarity'], True, base_col)
                 screen.blit(rar_surf, (rect.centerx - rar_surf.get_width()//2, rect.top + 65))
-                
-                desc_font = pygame.font.Font(None, 24)
                 parts = upgrade['desc'].split(", ")
                 for i, part in enumerate(parts):
-                    d_surf = desc_font.render(part, True, (200, 200, 200))
+                    d_surf = font_desc.render(part, True, (200, 200, 200))
                     screen.blit(d_surf, (rect.centerx - d_surf.get_width()//2, rect.centery + (i * 25) - 20))
 
         pygame.display.flip()
@@ -1418,6 +1365,7 @@ def main_menu():
     clock = pygame.time.Clock()
     menu_font = pygame.font.Font(None, 100)
     info_font = pygame.font.Font(None, 40)
+    btn_font = pygame.font.Font(None, 60)
     options = ["Start Game", "Quit"]
     selected = 0
     
@@ -1490,7 +1438,7 @@ def main_menu():
             pygame.draw.rect(screen, color_bg, btn_rect, border_radius=15)
             pygame.draw.rect(screen, WHITE, btn_rect, 3, border_radius=15)
 
-            btn_font = pygame.font.Font(None, 60)
+
             option_surf = btn_font.render(option, True, color_text)
             option_rect = option_surf.get_rect(center=btn_rect.center)
             screen.blit(option_surf, option_rect)
