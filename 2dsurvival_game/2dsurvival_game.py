@@ -87,6 +87,337 @@ HEAL_AMOUNT = 2
 DAMAGE_BOOST = 2  # zvýšení útoku
 DAMAGE_BOOST_DURATION = 300  # snímků
 
+# =============================================
+# MegaBonk-style Weapon & Tome Definitions
+# =============================================
+MAX_WEAPON_LEVEL = 5
+MAX_WEAPON_SLOTS = 4
+REROLL_BASE_COST = 3
+
+WEAPON_DEFS = {
+    "sword": {
+        "name": "Sword",
+        "icon_color": (200, 200, 220),
+        "type": "weapon",
+        "levels": {
+            1: {"damage": 10, "cooldown": 40, "size": 1.0, "desc": "Basic melee slash"},
+            2: {"damage": 15, "cooldown": 35, "size": 1.2, "desc": "+Damage, +Size"},
+            3: {"damage": 22, "cooldown": 28, "size": 1.4, "desc": "+Damage, Faster"},
+            4: {"damage": 30, "cooldown": 22, "size": 1.7, "desc": "+Damage, +Size"},
+            5: {"damage": 42, "cooldown": 16, "size": 2.0, "desc": "MAX: Massive Blade"},
+        }
+    },
+    "shuriken": {
+        "name": "Shuriken",
+        "icon_color": (180, 180, 200),
+        "type": "weapon",
+        "levels": {
+            1: {"damage": 8, "cooldown": 90, "count": 1, "speed": 5, "desc": "Throws 1 shuriken"},
+            2: {"damage": 11, "cooldown": 75, "count": 2, "speed": 5.5, "desc": "2 shurikens"},
+            3: {"damage": 15, "cooldown": 60, "count": 3, "speed": 6, "desc": "3 shurikens"},
+            4: {"damage": 20, "cooldown": 50, "count": 4, "speed": 6.5, "desc": "4 shurikens!"},
+            5: {"damage": 28, "cooldown": 35, "count": 6, "speed": 7, "desc": "MAX: Shuriken Storm"},
+        }
+    },
+    "fire_ring": {
+        "name": "Fire Ring",
+        "icon_color": (255, 100, 30),
+        "type": "weapon",
+        "levels": {
+            1: {"damage": 4, "cooldown": 180, "radius": 60, "duration": 40, "desc": "Fire burst around you"},
+            2: {"damage": 7, "cooldown": 150, "radius": 80, "duration": 45, "desc": "+Damage, +Radius"},
+            3: {"damage": 11, "cooldown": 120, "radius": 100, "duration": 50, "desc": "Bigger & stronger"},
+            4: {"damage": 16, "cooldown": 90, "radius": 120, "duration": 55, "desc": "Huge fire ring"},
+            5: {"damage": 24, "cooldown": 60, "radius": 150, "duration": 60, "desc": "MAX: Inferno"},
+        }
+    },
+    "lightning": {
+        "name": "Lightning",
+        "icon_color": (100, 180, 255),
+        "type": "weapon",
+        "levels": {
+            1: {"damage": 20, "cooldown": 150, "targets": 1, "desc": "Strikes nearest enemy"},
+            2: {"damage": 28, "cooldown": 125, "targets": 2, "desc": "Chains to 2"},
+            3: {"damage": 38, "cooldown": 100, "targets": 3, "desc": "3 targets"},
+            4: {"damage": 50, "cooldown": 80, "targets": 4, "desc": "4 chain lightning"},
+            5: {"damage": 65, "cooldown": 55, "targets": 5, "desc": "MAX: Thunder Storm"},
+        }
+    }
+}
+
+TOME_DEFS = {
+    "vitality": {
+        "name": "Vitality Tome",
+        "icon_color": (255, 80, 80),
+        "type": "tome",
+        "stat": "max_health",
+        "per_level": 10,
+        "desc": "+10 Max HP",
+        "max_level": 10,
+    },
+    "power": {
+        "name": "Power Tome",
+        "icon_color": (255, 165, 0),
+        "type": "tome",
+        "stat": "damage_mult",
+        "per_level": 0.1,
+        "desc": "+10% Damage",
+        "max_level": 10,
+    },
+    "speed": {
+        "name": "Speed Tome",
+        "icon_color": (0, 200, 255),
+        "type": "tome",
+        "stat": "speed",
+        "per_level": 0.3,
+        "desc": "+0.3 Speed",
+        "max_level": 8,
+    },
+    "haste": {
+        "name": "Haste Tome",
+        "icon_color": (255, 255, 100),
+        "type": "tome",
+        "stat": "cooldown_mult",
+        "per_level": 0.05,
+        "desc": "-5% Cooldown",
+        "max_level": 10,
+    },
+    "luck": {
+        "name": "Luck Tome",
+        "icon_color": (0, 255, 100),
+        "type": "tome",
+        "stat": "luck",
+        "per_level": 1,
+        "desc": "+1 Luck (better rarity)",
+        "max_level": 5,
+    }
+}
+
+# =============================================
+# Helper funkce pro upgrade systém
+# =============================================
+
+def get_rarity_for_level(level):
+    """Vrátí raritu podle úrovně upgradu."""
+    if level <= 1:
+        return "Common"
+    elif level == 2:
+        return "Uncommon"
+    elif level == 3:
+        return "Rare"
+    elif level == 4:
+        return "Epic"
+    else:
+        return "Legendary"
+
+def generate_upgrade_offers(player):
+    """Vygeneruje 3 náhodné nabídky upgradu z dostupných zbraní a tomů."""
+    available = []
+
+    # Upgrady existujících zbraní (co ještě nejsou na maxu)
+    for wid, level in player.weapons.items():
+        if level < MAX_WEAPON_LEVEL:
+            next_level = level + 1
+            stats = WEAPON_DEFS[wid]["levels"][next_level]
+            rarity = get_rarity_for_level(next_level)
+            available.append({
+                "type": "weapon_upgrade",
+                "id": wid,
+                "name": WEAPON_DEFS[wid]["name"],
+                "icon_color": WEAPON_DEFS[wid]["icon_color"],
+                "rarity": rarity,
+                "desc": stats["desc"],
+                "current_level": level,
+                "next_level": next_level,
+            })
+
+    # Nové zbraně (pokud je slot volný)
+    if len(player.weapons) < MAX_WEAPON_SLOTS:
+        for wid, wdef in WEAPON_DEFS.items():
+            if wid not in player.weapons:
+                stats = wdef["levels"][1]
+                available.append({
+                    "type": "weapon_new",
+                    "id": wid,
+                    "name": wdef["name"],
+                    "icon_color": wdef["icon_color"],
+                    "rarity": "Common",
+                    "desc": stats["desc"],
+                    "current_level": 0,
+                    "next_level": 1,
+                })
+
+    # Tomy
+    for tid, tdef in TOME_DEFS.items():
+        current = player.tomes.get(tid, 0)
+        if current < tdef["max_level"]:
+            next_level = current + 1
+            rarity = get_rarity_for_level(next_level)
+            available.append({
+                "type": "tome",
+                "id": tid,
+                "name": tdef["name"],
+                "icon_color": tdef["icon_color"],
+                "rarity": rarity,
+                "desc": tdef["desc"],
+                "current_level": current,
+                "next_level": next_level,
+            })
+
+    if not available:
+        return []
+
+    # Váhy podle rarity a luck
+    luck = player.luck
+    weights = []
+    for offer in available:
+        base_w = {"Common": 50, "Uncommon": 30, "Rare": 15, "Epic": 7, "Legendary": 2}
+        w = base_w.get(offer["rarity"], 10)
+        if offer["rarity"] in ["Rare", "Epic", "Legendary"]:
+            w += luck * 3
+        weights.append(max(1, w))
+
+    # Vyber 3 unikátní
+    offers = []
+    avail_copy = list(available)
+    w_copy = list(weights)
+    for _ in range(min(3, len(avail_copy))):
+        if not avail_copy:
+            break
+        chosen = random.choices(avail_copy, weights=w_copy, k=1)[0]
+        idx = avail_copy.index(chosen)
+        offers.append(chosen)
+        avail_copy.pop(idx)
+        w_copy.pop(idx)
+
+    return offers
+
+def apply_upgrade(player, upgrade):
+    """Aplikuje vybraný upgrade na hráče."""
+    if upgrade["type"] == "weapon_new":
+        player.weapons[upgrade["id"]] = 1
+        player.weapon_timers[upgrade["id"]] = 0
+    elif upgrade["type"] == "weapon_upgrade":
+        player.weapons[upgrade["id"]] = upgrade["next_level"]
+    elif upgrade["type"] == "tome":
+        tid = upgrade["id"]
+        tdef = TOME_DEFS[tid]
+        player.tomes[tid] = upgrade["next_level"]
+        if tdef["stat"] == "max_health":
+            player.max_health += tdef["per_level"]
+            player.health += tdef["per_level"]
+        elif tdef["stat"] == "damage_mult":
+            player.damage_mult += tdef["per_level"]
+        elif tdef["stat"] == "speed":
+            global PLAYER_SPEED
+            PLAYER_SPEED += tdef["per_level"]
+        elif tdef["stat"] == "cooldown_mult":
+            player.cooldown_mult = max(0.3, player.cooldown_mult - tdef["per_level"])
+        elif tdef["stat"] == "luck":
+            player.luck += tdef["per_level"]
+
+def draw_upgrade_icon(surface, upgrade_id, cx, cy, size=1.0):
+    """Vykreslí ikonu zbraně/tomu na kartě."""
+    s = size
+    if upgrade_id == "sword":
+        pygame.draw.line(surface, (200, 200, 220), (int(cx - 10*s), int(cy + 14*s)), (int(cx + 10*s), int(cy - 14*s)), max(1, int(4*s)))
+        pygame.draw.line(surface, (255, 255, 255), (int(cx - 9*s), int(cy + 13*s)), (int(cx + 9*s), int(cy - 13*s)), max(1, int(2*s)))
+        pygame.draw.rect(surface, (218, 165, 32), (int(cx - 7*s), int(cy + 1*s), int(14*s), int(4*s)))
+        pygame.draw.line(surface, (139, 69, 19), (cx, int(cy + 5*s)), (cx, int(cy + 14*s)), max(1, int(3*s)))
+    elif upgrade_id == "shuriken":
+        points = []
+        for i in range(8):
+            a = math.radians(i * 45 - 22.5)
+            r = 14*s if i % 2 == 0 else 7*s
+            points.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+        pygame.draw.polygon(surface, (180, 180, 200), points)
+        pygame.draw.circle(surface, (120, 120, 140), (cx, cy), max(1, int(3*s)))
+    elif upgrade_id == "fire_ring":
+        for i in range(8):
+            a = math.radians(i * 45)
+            px = cx + int(math.cos(a) * 14*s)
+            py = cy + int(math.sin(a) * 14*s)
+            c_val = 100 + (i * 20) % 100
+            pygame.draw.circle(surface, (255, c_val, 0), (px, py), max(1, int(4*s)))
+        pygame.draw.circle(surface, (255, 200, 50), (cx, cy), max(1, int(6*s)))
+    elif upgrade_id == "lightning":
+        pts = [
+            (int(cx - 4*s), int(cy - 14*s)),
+            (int(cx + 3*s), int(cy - 4*s)),
+            (int(cx - 2*s), int(cy - 1*s)),
+            (int(cx + 7*s), int(cy + 14*s)),
+            (int(cx + 1*s), int(cy + 3*s)),
+            (int(cx + 5*s), int(cy + 5*s)),
+        ]
+        pygame.draw.lines(surface, (100, 180, 255), False, pts, max(1, int(3*s)))
+        pygame.draw.lines(surface, (220, 240, 255), False, pts, max(1, int(1*s)))
+    elif upgrade_id == "vitality":
+        pygame.draw.rect(surface, (255, 50, 50), (int(cx - 9*s), int(cy - 3*s), int(18*s), int(6*s)))
+        pygame.draw.rect(surface, (255, 50, 50), (int(cx - 3*s), int(cy - 9*s), int(6*s), int(18*s)))
+    elif upgrade_id == "power":
+        pygame.draw.polygon(surface, (255, 165, 0), [(cx, int(cy - 13*s)), (int(cx + 11*s), int(cy + 9*s)), (int(cx - 11*s), int(cy + 9*s))])
+        pygame.draw.polygon(surface, (255, 210, 80), [(cx, int(cy - 8*s)), (int(cx + 7*s), int(cy + 6*s)), (int(cx - 7*s), int(cy + 6*s))])
+    elif upgrade_id == "speed":
+        for i in range(3):
+            pygame.draw.line(surface, (0, 200, 255), (int(cx - 10*s + i*5*s), int(cy + 8*s)), (int(cx + 6*s + i*5*s), int(cy - 8*s)), max(1, int(2*s)))
+    elif upgrade_id == "haste":
+        pygame.draw.circle(surface, (255, 255, 100), (cx, cy), max(1, int(11*s)), max(1, int(2*s)))
+        pygame.draw.line(surface, (255, 255, 100), (cx, cy), (int(cx + 7*s), int(cy - 9*s)), max(1, int(2*s)))
+        pygame.draw.line(surface, (255, 255, 100), (cx, cy), (int(cx + 9*s), int(cy + 2*s)), max(1, int(2*s)))
+    elif upgrade_id == "luck":
+        for a in [0, 90, 180, 270]:
+            lx = cx + int(math.cos(math.radians(a)) * 7*s)
+            ly = cy + int(math.sin(math.radians(a)) * 7*s)
+            pygame.draw.circle(surface, (0, 255, 100), (lx, ly), max(1, int(5*s)))
+        pygame.draw.line(surface, (0, 180, 50), (cx, int(cy + 5*s)), (cx, int(cy + 15*s)), max(1, int(2*s)))
+
+
+# =============================================
+# Projektilové třídy pro zbraně
+# =============================================
+
+class ShurikenProjectile(pygame.sprite.Sprite):
+    def __init__(self, x, y, angle, speed, damage):
+        super().__init__()
+        self.damage = damage
+        self.speed = speed
+        self.angle_rad = math.radians(angle)
+        self.fx = float(x)
+        self.fy = float(y)
+        self.vx = math.cos(self.angle_rad) * speed
+        self.vy = math.sin(self.angle_rad) * speed
+        self.lifetime = 180
+        self.hit_enemies = set()
+        self.rotation = 0
+
+        # Draw shuriken star
+        self.base_image = pygame.Surface((14, 14), pygame.SRCALPHA)
+        cx, cy = 7, 7
+        points = []
+        for i in range(8):
+            a = math.radians(i * 45 - 22.5)
+            r = 6 if i % 2 == 0 else 3
+            points.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+        pygame.draw.polygon(self.base_image, (180, 190, 210), points)
+        pygame.draw.polygon(self.base_image, (140, 150, 170), points, 1)
+        pygame.draw.circle(self.base_image, (100, 110, 130), (cx, cy), 2)
+
+        self.image = self.base_image.copy()
+        self.rect = self.image.get_rect(center=(x, y))
+
+    def update(self, **kwargs):
+        self.fx += self.vx
+        self.fy += self.vy
+        self.rect.center = (int(self.fx), int(self.fy))
+        self.lifetime -= 1
+        self.rotation = (self.rotation + 15) % 360
+        self.image = pygame.transform.rotate(self.base_image, self.rotation)
+        old_center = self.rect.center
+        self.rect = self.image.get_rect(center=old_center)
+        if self.lifetime <= 0:
+            self.kill()
+
+
 # Kamera
 class Camera:
     def __init__(self, width, height):
@@ -269,6 +600,21 @@ class Player(pygame.sprite.Sprite):
         self.hit_enemies = set()
         self.level_up_pending = 0
 
+        # MegaBonk weapon/tome system
+        self.weapons = {"sword": 1}  # weapon_id: level
+        self.tomes = {}  # tome_id: level
+        self.damage_mult = 1.0  # z Power Tome
+        self.cooldown_mult = 1.0  # z Haste Tome (nižší = rychlejší)
+        self.luck = 0  # z Luck Tome
+        self.weapon_timers = {}  # cooldown timery pro každou zbraň
+        self.fire_ring_active = 0
+        self.fire_ring_radius = 0
+        self.fire_ring_damage = 0
+        self.fire_ring_max_duration = 1
+        self.lightning_bolts = []
+        self.lightning_timer = 0
+        self.reroll_cost = REROLL_BASE_COST
+
         # Animace
         self.animation_frames = {
             'idle': self.create_idle_frames(),
@@ -386,6 +732,21 @@ class Player(pygame.sprite.Sprite):
             frames.append(surf)
         return frames
 
+    def get_sword_reach(self):
+        """Vrátí efektivní dosah meče na základě úrovně zbraně."""
+        level = self.weapons.get("sword", 0)
+        if level == 0:
+            return ATTACK_SIZE
+        return ATTACK_SIZE * WEAPON_DEFS["sword"]["levels"][level]["size"]
+
+    def get_sword_damage(self):
+        """Vrátí celkový damage meče včetně multiplikátorů."""
+        level = self.weapons.get("sword", 0)
+        if level == 0:
+            return 0
+        base = WEAPON_DEFS["sword"]["levels"][level]["damage"]
+        return base * self.damage_mult * self.damage_boost
+
     def handle_input(self, camera=None):
         keys = pygame.key.get_pressed()
         
@@ -416,11 +777,14 @@ class Player(pygame.sprite.Sprite):
                 self.vel_x *= inv
                 self.vel_y *= inv
 
-        # Útok (automatický)
-        if self.attack_cooldown <= 0:
+        # Útok (automatický) - sword weapon z MegaBonk systému
+        sword_level = self.weapons.get("sword", 0)
+        if sword_level > 0 and self.attack_cooldown <= 0:
+            sword_stats = WEAPON_DEFS["sword"]["levels"][sword_level]
+            effective_cooldown = max(5, int(sword_stats["cooldown"] * self.cooldown_mult))
             self.attacking = True
             self.attack_timer = ATTACK_DURATION
-            self.attack_cooldown = BASE_ATTACK_COOLDOWN
+            self.attack_cooldown = effective_cooldown
             self.hit_enemies.clear()
             
             if camera:
@@ -491,6 +855,16 @@ class Player(pygame.sprite.Sprite):
             if self.damage_boost_timer <= 0:
                 self.damage_boost = 1
 
+        # Fire ring timer
+        if self.fire_ring_active > 0:
+            self.fire_ring_active -= 1
+
+        # Lightning visual timer
+        if self.lightning_timer > 0:
+            self.lightning_timer -= 1
+            if self.lightning_timer <= 0:
+                self.lightning_bolts = []
+
         # Animace
         if self.attacking:
             self.current_animation = 'attack'
@@ -514,7 +888,8 @@ class Player(pygame.sprite.Sprite):
         dx = px - ox
         dy = py - oy
         dist = math.hypot(dx, dy)
-        if dist > ATTACK_SIZE * 2:
+        reach = self.get_sword_reach()
+        if dist > reach * 2:
             return False
         ang = math.degrees(math.atan2(dy, dx))
         diff = (ang - self.attack_angle + 180) % 360 - 180
@@ -526,14 +901,16 @@ class Player(pygame.sprite.Sprite):
         ox, oy = self.rect.center
         ex, ey = enemy.rect.center
         dist = math.hypot(ex - ox, ey - oy)
-        if dist > ATTACK_SIZE * 2:
+        reach = self.get_sword_reach()
+        if dist > reach * 2:
             return False
         return self.point_in_swing(ex, ey)
 
     def draw_attack(self, screen, camera):
         if self.attacking:
             center = camera.apply(self).center
-            arc_radius = ATTACK_SIZE * 1.5
+            reach = self.get_sword_reach()
+            arc_radius = reach * 1.5
             
             # Větší plocha pro vykreslení srpu
             surf_size = int(arc_radius * 3)
@@ -613,6 +990,75 @@ class Player(pygame.sprite.Sprite):
                 pygame.draw.polygon(swoosh_surf, (255, 255, 255, alpha_core), core_polygon)
             
             screen.blit(swoosh_surf, swoosh_surf.get_rect(center=center))
+
+    def draw_fire_ring(self, screen, camera):
+        """Vykreslí fire ring efekt kolem hráče."""
+        if self.fire_ring_active > 0:
+            center = camera.apply(self).center
+            max_dur = max(1, self.fire_ring_max_duration)
+            progress = 1.0 - (self.fire_ring_active / max_dur)
+            expand = min(1.0, progress * 4)  # rychlé rozšíření
+            fr_radius = int(self.fire_ring_radius * expand)
+            alpha = int(180 * (self.fire_ring_active / max_dur))
+
+            if fr_radius > 5:
+                fr_size = fr_radius * 2 + 30
+                fr_surf = pygame.Surface((fr_size, fr_size), pygame.SRCALPHA)
+                cp = (fr_size // 2, fr_size // 2)
+
+                # Vnější kruh
+                pygame.draw.circle(fr_surf, (255, 80, 0, max(0, alpha // 2)), cp, fr_radius, 5)
+                # Vnitřní záře
+                pygame.draw.circle(fr_surf, (255, 180, 50, max(0, alpha)), cp, max(0, fr_radius - 4), 3)
+
+                # Ohnivé částice kolem kruhu
+                num_particles = 12
+                for i in range(num_particles):
+                    angle = math.radians(i * (360 / num_particles) + self.fire_ring_active * 7)
+                    px = cp[0] + int(math.cos(angle) * fr_radius)
+                    py = cp[1] + int(math.sin(angle) * fr_radius)
+                    p_alpha = max(0, min(255, alpha + 30))
+                    c_val = 120 + (i * 25) % 80
+                    pygame.draw.circle(fr_surf, (255, c_val, 0, p_alpha), (px, py), 5)
+                    # Menší jiskra
+                    px2 = cp[0] + int(math.cos(angle + 0.3) * (fr_radius - 8))
+                    py2 = cp[1] + int(math.sin(angle + 0.3) * (fr_radius - 8))
+                    pygame.draw.circle(fr_surf, (255, 255, 100, max(0, p_alpha // 2)), (px2, py2), 2)
+
+                screen.blit(fr_surf, (center[0] - fr_size // 2, center[1] - fr_size // 2))
+
+    def draw_lightning(self, screen, camera):
+        """Vykreslí blesky mezi hráčem a zasaženými nepřáteli."""
+        if self.lightning_timer > 0 and self.lightning_bolts:
+            alpha_factor = self.lightning_timer / 15.0
+            for (sx, sy), (ex, ey) in self.lightning_bolts:
+                # Převod na souřadnice kamery
+                s_screen = (int(sx + camera.rect.x), int(sy + camera.rect.y))
+                e_screen = (int(ex + camera.rect.x), int(ey + camera.rect.y))
+
+                # Zubaté body blesku
+                points = [s_screen]
+                segments = 6
+                for i in range(1, segments):
+                    t = i / segments
+                    mx = int(s_screen[0] + (e_screen[0] - s_screen[0]) * t + random.randint(-10, 10))
+                    my = int(s_screen[1] + (e_screen[1] - s_screen[1]) * t + random.randint(-10, 10))
+                    points.append((mx, my))
+                points.append(e_screen)
+
+                # Hlavní blesk
+                width = max(1, int(3 * alpha_factor))
+                pygame.draw.lines(screen, (100, 180, 255), False, points, width)
+                # Bílý střed
+                pygame.draw.lines(screen, (220, 240, 255), False, points, max(1, width - 1))
+
+                # Záře kolem cíle
+                glow_radius = int(12 * alpha_factor)
+                if glow_radius > 2:
+                    glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                    glow_alpha = int(100 * alpha_factor)
+                    pygame.draw.circle(glow_surf, (100, 180, 255, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                    screen.blit(glow_surf, (e_screen[0] - glow_radius, e_screen[1] - glow_radius))
 
     def take_damage(self, amount):
         self.health -= amount
@@ -889,7 +1335,7 @@ def generate_dungeon(size):
         blocks.add(Block(x_right, by, 'stone'))
         placed.add((x_right, by))
 
-    # Přidáme hranice světa (jednobloční zdi) tak, aby hráč nemohl vypadnout ven
+    # Přidáme hranice světa (jednobloční zdi) tak, aby hráč nemohl vypadnout ven
 
 
     # Vodorovné hrany
@@ -995,6 +1441,158 @@ def show_death_screen(screen, score, wave, menu_font, info_font):
         pygame.display.flip()
         clock.tick(FPS)
 
+# =============================================
+# Vykreslení level-up obrazovky (MegaBonk style)
+# =============================================
+
+def draw_level_up_screen(screen, upgrades_offered, player, fonts):
+    """Vykreslí MegaBonk-style level-up obrazovku s kartami zbraní/tomů."""
+    font_lg, font_ui, font_sm, font_rar, font_desc = fonts
+
+    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 190))
+    screen.blit(overlay, (0, 0))
+
+    # Titulek
+    title = font_lg.render('LEVEL UP!', True, (255, 215, 0))
+    title_shadow = font_lg.render('LEVEL UP!', True, (80, 60, 0))
+    screen.blit(title_shadow, (WINDOW_WIDTH // 2 - title.get_width() // 2 + 3, 53))
+    screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 50))
+
+    subtitle = font_ui.render('Choose an upgrade:', True, (200, 200, 200))
+    screen.blit(subtitle, (WINDOW_WIDTH // 2 - subtitle.get_width() // 2, 120))
+
+    if not upgrades_offered:
+        no_upg = font_sm.render("No upgrades available!", True, (200, 100, 100))
+        screen.blit(no_upg, (WINDOW_WIDTH // 2 - no_upg.get_width() // 2, WINDOW_HEIGHT // 2))
+        return
+
+    card_count = len(upgrades_offered)
+    card_w, card_h, spacing = 280, 400, 45
+    total_w = card_count * card_w + (card_count - 1) * spacing
+    start_x = (WINDOW_WIDTH - total_w) // 2
+    start_y = (WINDOW_HEIGHT - card_h) // 2 + 15
+    mx, my = pygame.mouse.get_pos()
+
+    for idx, upgrade in enumerate(upgrades_offered):
+        cx = start_x + idx * (card_w + spacing)
+        rect = pygame.Rect(cx, start_y, card_w, card_h)
+        hovered = rect.collidepoint(mx, my)
+
+        base_col = RARITY_COLORS.get(upgrade["rarity"], WHITE)
+
+        # Glow efekt při hoveru
+        if hovered:
+            glow_surf = pygame.Surface((card_w + 24, card_h + 24), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*base_col, 50), (0, 0, card_w + 24, card_h + 24), border_radius=16)
+            screen.blit(glow_surf, (cx - 12, start_y - 12))
+            # Druhá vrstva záře
+            glow_surf2 = pygame.Surface((card_w + 12, card_h + 12), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf2, (*base_col, 30), (0, 0, card_w + 12, card_h + 12), border_radius=14)
+            screen.blit(glow_surf2, (cx - 6, start_y - 6))
+
+        # Pozadí karty
+        bg_r = min(255, base_col[0] // 5 + 25)
+        bg_g = min(255, base_col[1] // 5 + 25)
+        bg_b = min(255, base_col[2] // 5 + 25)
+        if hovered:
+            bg_r = min(255, bg_r + 15)
+            bg_g = min(255, bg_g + 15)
+            bg_b = min(255, bg_b + 15)
+        bg_col = (bg_r, bg_g, bg_b)
+
+        pygame.draw.rect(screen, bg_col, rect, border_radius=12)
+
+        # Gradient efekt na kartě (horní polovina světlejší)
+        grad_surf = pygame.Surface((card_w, card_h // 2), pygame.SRCALPHA)
+        grad_surf.fill((*base_col, 15))
+        screen.blit(grad_surf, (cx, start_y))
+
+        # Okraj karty
+        border_w = 3 if not hovered else 4
+        pygame.draw.rect(screen, base_col, rect, border_w, border_radius=12)
+
+        # Ikona - kruh nahoře
+        icon_y = rect.top + 70
+        icon_color = upgrade.get("icon_color", base_col)
+
+        # Kruhy pozadí ikony
+        pygame.draw.circle(screen, (0, 0, 0, 80), (rect.centerx + 2, icon_y + 2), 36)
+        pygame.draw.circle(screen, (icon_color[0] // 3, icon_color[1] // 3, icon_color[2] // 3), (rect.centerx, icon_y), 36)
+        pygame.draw.circle(screen, icon_color, (rect.centerx, icon_y), 30)
+        pygame.draw.circle(screen, (255, 255, 255), (rect.centerx, icon_y), 30, 2)
+
+        # Ikona uvnitř kruhu
+        draw_upgrade_icon(screen, upgrade["id"], rect.centerx, icon_y)
+
+        # Typ label (WEAPON / TOME)
+        is_weapon = "weapon" in upgrade["type"]
+        type_label = "WEAPON" if is_weapon else "TOME"
+        type_col = (255, 200, 100) if is_weapon else (100, 255, 200)
+        type_surf = font_desc.render(type_label, True, type_col)
+        screen.blit(type_surf, (rect.centerx - type_surf.get_width() // 2, rect.top + 115))
+
+        # Název
+        name_surf = font_sm.render(upgrade['name'], True, WHITE)
+        screen.blit(name_surf, (rect.centerx - name_surf.get_width() // 2, rect.top + 140))
+
+        # Rarity
+        rar_surf = font_rar.render(upgrade['rarity'], True, base_col)
+        screen.blit(rar_surf, (rect.centerx - rar_surf.get_width() // 2, rect.top + 170))
+
+        # Level info
+        if upgrade['current_level'] == 0:
+            level_text = "NEW!"
+            level_col = (100, 255, 100)
+        else:
+            level_text = f"Lv.{upgrade['current_level']}  ->  Lv.{upgrade['next_level']}"
+            level_col = (255, 255, 100)
+        level_surf = font_rar.render(level_text, True, level_col)
+        screen.blit(level_surf, (rect.centerx - level_surf.get_width() // 2, rect.top + 200))
+
+        # Oddělovací čára
+        pygame.draw.line(screen, base_col, (rect.left + 25, rect.top + 235), (rect.right - 25, rect.top + 235), 1)
+
+        # Popis
+        desc_surf = font_desc.render(upgrade['desc'], True, (210, 210, 210))
+        screen.blit(desc_surf, (rect.centerx - desc_surf.get_width() // 2, rect.top + 255))
+
+        # MAX level indikátor
+        if upgrade.get("next_level", 0) >= MAX_WEAPON_LEVEL and is_weapon:
+            max_surf = font_desc.render("* MAX LEVEL *", True, (255, 215, 0))
+            screen.blit(max_surf, (rect.centerx - max_surf.get_width() // 2, rect.top + 290))
+
+        # Weapon slot info
+        if is_weapon:
+            slots_used = len(player.weapons)
+            if upgrade["type"] == "weapon_new":
+                slot_text = f"Slots: {slots_used}/{MAX_WEAPON_SLOTS}"
+            else:
+                slot_text = f"Slots: {slots_used}/{MAX_WEAPON_SLOTS}"
+            slot_surf = font_desc.render(slot_text, True, (150, 150, 150))
+            screen.blit(slot_surf, (rect.centerx - slot_surf.get_width() // 2, rect.bottom - 40))
+
+    # Reroll tlačítko
+    reroll_cost = player.reroll_cost
+    reroll_rect = pygame.Rect(WINDOW_WIDTH // 2 - 120, start_y + card_h + 25, 240, 50)
+    reroll_hovered = reroll_rect.collidepoint(mx, my)
+    can_reroll = player.money >= reroll_cost
+
+    reroll_bg = (80, 65, 20) if can_reroll else (45, 45, 45)
+    if reroll_hovered and can_reroll:
+        reroll_bg = (120, 95, 30)
+    pygame.draw.rect(screen, reroll_bg, reroll_rect, border_radius=10)
+
+    reroll_border_col = (255, 215, 0) if can_reroll else (100, 100, 100)
+    pygame.draw.rect(screen, reroll_border_col, reroll_rect, 2, border_radius=10)
+
+    reroll_text_col = (255, 215, 0) if can_reroll else (100, 100, 100)
+    reroll_text = font_rar.render(f"Reroll  ({reroll_cost} coins)  [R]", True, reroll_text_col)
+    screen.blit(reroll_text, (reroll_rect.centerx - reroll_text.get_width() // 2, reroll_rect.centery - reroll_text.get_height() // 2))
+
+    return start_x, start_y, card_w, card_h, spacing, reroll_rect
+
+
 # Hlavní funkce hry
 def main():
     global WORLD_WIDTH_PX, WORLD_HEIGHT_PX
@@ -1008,6 +1606,7 @@ def main():
     font_sm = pygame.font.Font(None, 36)
     font_rar = pygame.font.Font(None, 28)
     font_desc = pygame.font.Font(None, 24)
+    fonts = (font_lg, font_ui, font_sm, font_rar, font_desc)
 
     # Generování dungeonu
     blocks, items, rooms = generate_dungeon(DUNGEON_SIZE)
@@ -1035,6 +1634,9 @@ def main():
             enemy = Enemy(ex, ey, enemy_type)
             enemies.add(enemy)
 
+    # Projektily (shurikeny atd.)
+    projectiles = pygame.sprite.Group()
+
     # Kamera
     camera = Camera(WORLD_WIDTH_PX, WORLD_HEIGHT_PX)
 
@@ -1051,58 +1653,38 @@ def main():
     death_timer = 0
     is_level_up_screen = False
     upgrades_offered = []
-    UPGRADES_POOL = [
-        {"name": "Minor Vitality", "rarity": "Common", "desc": "+5 Max HP", "stats": {"max_health": 5}},
-        {"name": "Minor Strength", "rarity": "Common", "desc": "+1 Damage", "stats": {"damage": 1}},
-        {"name": "Swiftness", "rarity": "Common", "desc": "+0.1 Speed", "stats": {"speed": 0.1}},
-        
-        {"name": "Warrior", "rarity": "Uncommon", "desc": "+2 Damage, -2 Max HP", "stats": {"damage": 2, "max_health": -2}},
-        {"name": "Stamina", "rarity": "Uncommon", "desc": "+10 Max HP, Heal 10%", "stats": {"max_health": 10, "heal_pct": 0.1}},
-        {"name": "Sprinter", "rarity": "Uncommon", "desc": "+0.3 Speed, -1 Dmg", "stats": {"speed": 0.3, "damage": -1}},
-        
-        {"name": "Vampire", "rarity": "Rare", "desc": "Heal 30%, +1 Dmg", "stats": {"heal_pct": 0.3, "damage": 1}},
-        {"name": "Juggernaut", "rarity": "Rare", "desc": "+20 Max HP, -0.1 Speed", "stats": {"max_health": 20, "speed": -0.1}},
-        {"name": "Assassin", "rarity": "Rare", "desc": "+3 Damage, -1 Cooldown", "stats": {"damage": 3, "cooldown": 1}},
-        
-        {"name": "Glass Cannon", "rarity": "Epic", "desc": "+5 Damage, -10 Max HP", "stats": {"damage": 5, "max_health": -10}},
-        {"name": "Tank", "rarity": "Epic", "desc": "+30 Max HP, -0.2 Speed", "stats": {"max_health": 30, "speed": -0.2}},
-        {"name": "Berserker", "rarity": "Epic", "desc": "+4 Dmg, +0.2 Spd, -5 HP", "stats": {"damage": 4, "speed": 0.2, "max_health": -5}},
 
-        {"name": "God of War", "rarity": "Legendary", "desc": "+5 Dmg, +20 HP, +0.3 Spd", "stats": {"damage": 5, "max_health": 20, "speed": 0.3}},
-        {"name": "Time Weaver", "rarity": "Legendary", "desc": "Cooldown -3, +0.5 Spd", "stats": {"cooldown": 3, "speed": 0.5}},
-        {"name": "Immortal", "rarity": "Legendary", "desc": "+50 Max HP, Heal 100%", "stats": {"max_health": 50, "heal_pct": 1.0}}
-    ]
     while running:
         clock.tick(FPS)
 
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if is_level_up_screen:
+                if is_level_up_screen and upgrades_offered:
                     mx, my = pygame.mouse.get_pos()
-                    card_w, card_h, spacing = 250, 350, 50
-                    start_x = (WINDOW_WIDTH - (3*card_w + 2*spacing)) // 2
-                    start_y = (WINDOW_HEIGHT - card_h) // 2
+                    card_count = len(upgrades_offered)
+                    card_w, card_h, spacing = 280, 400, 45
+                    total_w = card_count * card_w + (card_count - 1) * spacing
+                    lu_start_x = (WINDOW_WIDTH - total_w) // 2
+                    lu_start_y = (WINDOW_HEIGHT - card_h) // 2 + 15
+
+                    # Kontrola kliknutí na karty
                     for idx, upgrade in enumerate(upgrades_offered):
-                        rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
+                        cx = lu_start_x + idx * (card_w + spacing)
+                        rect = pygame.Rect(cx, lu_start_y, card_w, card_h)
                         if rect.collidepoint(mx, my):
-                            for stat, val in upgrade["stats"].items():
-                                if stat == "max_health":
-                                    player.max_health = max(1, player.max_health + val)
-                                    player.health += val
-                                elif stat == "damage":
-                                    player.attack_damage += val
-                                elif stat == "speed":
-                                    global PLAYER_SPEED
-                                    PLAYER_SPEED += val
-                                elif stat == "heal_pct":
-                                    player.heal(int(player.max_health * val))
-                                elif stat == "cooldown":
-                                    global BASE_ATTACK_COOLDOWN
-                                    BASE_ATTACK_COOLDOWN = max(5, BASE_ATTACK_COOLDOWN - val)
-                            
+                            apply_upgrade(player, upgrade)
                             player.level_up_pending -= 1
                             is_level_up_screen = False
                             break
+
+                    # Kontrola reroll tlačítka
+                    reroll_rect = pygame.Rect(WINDOW_WIDTH // 2 - 120, lu_start_y + card_h + 25, 240, 50)
+                    if reroll_rect.collidepoint(mx, my):
+                        if player.money >= player.reroll_cost:
+                            player.money -= player.reroll_cost
+                            player.reroll_cost += 2
+                            upgrades_offered = generate_upgrade_offers(player)
+
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
@@ -1113,24 +1695,140 @@ def main():
                         screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
                     else:
                         screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
+                elif event.key == pygame.K_r and is_level_up_screen:
+                    # Reroll klávesou R
+                    if player.money >= player.reroll_cost:
+                        player.money -= player.reroll_cost
+                        player.reroll_cost += 2
+                        upgrades_offered = generate_upgrade_offers(player)
 
         # Aktualizace
         if player.level_up_pending > 0 and not is_level_up_screen:
             is_level_up_screen = True
-            upgrades_offered = []
-            pool_copy = list(UPGRADES_POOL)
-            weights_map = {"Common": 50, "Uncommon": 25, "Rare": 15, "Epic": 8, "Legendary": 2}
-            for _ in range(3):
-                if not pool_copy: break
-                w = [weights_map[u["rarity"]] for u in pool_copy]
-                chosen = random.choices(pool_copy, weights=w, k=1)[0]
-                upgrades_offered.append(chosen)
-                pool_copy.remove(chosen)
+            player.reroll_cost = REROLL_BASE_COST  # Reset reroll cost při novém level-upu
+            upgrades_offered = generate_upgrade_offers(player)
 
         if not is_level_up_screen:
             player.update(blocks, camera)
             enemies.update(blocks, player)
             items.update(player)
+            projectiles.update()
+
+            # =============================================
+            # Weapon fire logic (MegaBonk styl)
+            # =============================================
+            for weapon_id, level in player.weapons.items():
+                if weapon_id == "sword":
+                    continue  # meč je řešen v handle_input
+
+                if weapon_id not in player.weapon_timers:
+                    player.weapon_timers[weapon_id] = 0
+
+                player.weapon_timers[weapon_id] -= 1
+                if player.weapon_timers[weapon_id] <= 0:
+                    stats = WEAPON_DEFS[weapon_id]["levels"][level]
+                    effective_cd = max(5, int(stats["cooldown"] * player.cooldown_mult))
+                    player.weapon_timers[weapon_id] = effective_cd
+
+                    if weapon_id == "shuriken":
+                        count = stats["count"]
+                        # Najdi nejbližšího nepřítele
+                        nearest = None
+                        min_dist = float('inf')
+                        for e in enemies:
+                            d = math.hypot(e.rect.centerx - player.rect.centerx,
+                                           e.rect.centery - player.rect.centery)
+                            if d < min_dist:
+                                min_dist = d
+                                nearest = e
+
+                        for i in range(count):
+                            if nearest and count <= 2:
+                                base_angle = math.degrees(math.atan2(
+                                    nearest.rect.centery - player.rect.centery,
+                                    nearest.rect.centerx - player.rect.centerx))
+                                angle = base_angle + (i - (count - 1) / 2) * 25
+                            elif nearest:
+                                base_angle = math.degrees(math.atan2(
+                                    nearest.rect.centery - player.rect.centery,
+                                    nearest.rect.centerx - player.rect.centerx))
+                                angle = base_angle + (i - (count - 1) / 2) * (360 / count)
+                            else:
+                                angle = (360 / count) * i + random.uniform(-15, 15)
+
+                            proj_damage = stats["damage"] * player.damage_mult
+                            proj = ShurikenProjectile(
+                                player.rect.centerx, player.rect.centery,
+                                angle, stats["speed"], proj_damage)
+                            projectiles.add(proj)
+
+                    elif weapon_id == "fire_ring":
+                        player.fire_ring_active = stats["duration"]
+                        player.fire_ring_radius = stats["radius"]
+                        player.fire_ring_damage = stats["damage"] * player.damage_mult
+                        player.fire_ring_max_duration = stats["duration"]
+
+                    elif weapon_id == "lightning":
+                        targets_count = stats["targets"]
+                        enemy_list = sorted(
+                            enemies.sprites(),
+                            key=lambda e: math.hypot(
+                                e.rect.centerx - player.rect.centerx,
+                                e.rect.centery - player.rect.centery))
+                        player.lightning_bolts = []
+                        lt_damage = stats["damage"] * player.damage_mult
+                        for e in enemy_list[:targets_count]:
+                            e.take_damage(lt_damage)
+                            e.hit_flash = 8
+                            if hasattr(e, 'apply_knockback'):
+                                e.apply_knockback(player.rect)
+                            player.lightning_bolts.append(
+                                (player.rect.center, e.rect.center))
+                            if e.is_dead():
+                                items.add(Item(e.rect.x, e.rect.y, 'xp', xp_value=e.xp_value))
+                                if random.random() < 0.3:
+                                    items.add(Item(e.rect.x + random.randint(-10, 10),
+                                                   e.rect.y + random.randint(-10, 10),
+                                                   'money', xp_value=random.randint(1, 3)))
+                                e.kill()
+                                score += 10
+                        player.lightning_timer = 15
+
+            # Fire ring damage tick
+            if player.fire_ring_active > 0 and player.fire_ring_active % 10 == 0:
+                for e in list(enemies):
+                    dist = math.hypot(e.rect.centerx - player.rect.centerx,
+                                      e.rect.centery - player.rect.centery)
+                    if dist < player.fire_ring_radius:
+                        e.take_damage(player.fire_ring_damage)
+                        e.hit_flash = 4
+                        if e.is_dead():
+                            items.add(Item(e.rect.x, e.rect.y, 'xp', xp_value=e.xp_value))
+                            if random.random() < 0.3:
+                                items.add(Item(e.rect.x + random.randint(-10, 10),
+                                               e.rect.y + random.randint(-10, 10),
+                                               'money', xp_value=random.randint(1, 3)))
+                            e.kill()
+                            score += 10
+
+            # Shuriken kolize s nepřáteli
+            for proj in list(projectiles):
+                if isinstance(proj, ShurikenProjectile):
+                    for e in list(enemies):
+                        if e not in proj.hit_enemies and proj.rect.colliderect(e.rect):
+                            proj.hit_enemies.add(e)
+                            e.take_damage(proj.damage)
+                            e.hit_flash = 6
+                            if hasattr(e, 'apply_knockback'):
+                                e.apply_knockback(proj.rect)
+                            if e.is_dead():
+                                items.add(Item(e.rect.x, e.rect.y, 'xp', xp_value=e.xp_value))
+                                if random.random() < 0.3:
+                                    items.add(Item(e.rect.x + random.randint(-10, 10),
+                                                   e.rect.y + random.randint(-10, 10),
+                                                   'money', xp_value=random.randint(1, 3)))
+                                e.kill()
+                                score += 10
 
             # Wave timer
             wave_timer += 1
@@ -1215,12 +1913,13 @@ def main():
                             player.vel_y = PLAYER_SPEED * 1.5
                         player.knockback_timer = 7
 
-            # Kolize útoku s nepřáteli
+            # Kolize útoku (meč) s nepřáteli - používá sword weapon stats
             if player.attacking:
+                sword_damage = player.get_sword_damage()
                 for spr in list(enemies):  # type: ignore
                     if isinstance(spr, Enemy) and spr not in player.hit_enemies and player.attack_hits(spr):  # type: ignore
                         player.hit_enemies.add(spr)
-                        spr.take_damage(player.attack_damage * player.damage_boost)
+                        spr.take_damage(sword_damage)
                         if hasattr(spr, 'apply_knockback'):
                             spr.apply_knockback(player.rect)
                         if spr.is_dead():
@@ -1268,6 +1967,12 @@ def main():
         for item in items:
             display_surface.blit(item.image, camera.apply(item))
 
+        # Kreslení projektilů (shurikeny)
+        for proj in projectiles:
+            proj_pos = camera.apply(proj)
+            if screen_rect.colliderect(proj_pos):
+                display_surface.blit(proj.image, proj_pos)
+
         # Kreslení nepřátel
         for enemy in enemies:
             if getattr(enemy, 'hit_flash', 0) > 0 and hasattr(enemy, 'flash_image'):
@@ -1283,8 +1988,14 @@ def main():
         else:
             display_surface.blit(player.image, camera.apply(player))
 
-        # Kreslení útoku
+        # Kreslení útoku (meč swoosh)
         player.draw_attack(display_surface, camera)
+
+        # Kreslení fire ring efektu
+        player.draw_fire_ring(display_surface, camera)
+
+        # Kreslení lightning efektu
+        player.draw_lightning(display_surface, camera)
         
         # Škálování kamery na celou obrazovku
         scaled_surf = pygame.transform.scale(display_surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -1305,42 +2016,46 @@ def main():
         screen.blit(score_text, (10, 90))
         key_text = font_ui.render(f"Keys: {player.keys}", True, WHITE)
         screen.blit(key_text, (10, 130))
-        money_text = font_ui.render(f"Money: {player.money}", True, (255, 215, 0))
+        money_text = font_ui.render(f"Coins: {player.money}", True, (255, 215, 0))
         screen.blit(money_text, (10, 170))
-        dmg_val = player.attack_damage * player.damage_boost
-        damage_text = font_ui.render(f"Damage: {dmg_val}", True, RED)
+
+        # Sword damage display
+        sword_dmg = int(player.get_sword_damage())
+        damage_text = font_ui.render(f"Sword Dmg: {sword_dmg}", True, RED)
         screen.blit(damage_text, (10, 210))
         if player.damage_boost > 1:
             boost_text = font_ui.render(f"Damage Boost: {player.damage_boost_timer//60}s", True, YELLOW)
             screen.blit(boost_text, (10, 250))
 
+        # Weapon slots display (pravý horní roh)
+        wp_y = 10
+        wp_x = WINDOW_WIDTH - 200
+        wp_title = font_desc.render("Weapons:", True, (255, 200, 100))
+        screen.blit(wp_title, (wp_x, wp_y))
+        wp_y += 22
+        for wid, wlevel in player.weapons.items():
+            wname = WEAPON_DEFS[wid]["name"]
+            wcol = WEAPON_DEFS[wid]["icon_color"]
+            w_text = font_desc.render(f"{wname} Lv.{wlevel}", True, wcol)
+            screen.blit(w_text, (wp_x, wp_y))
+            wp_y += 20
+
+        # Tome display
+        if player.tomes:
+            wp_y += 5
+            tome_title = font_desc.render("Tomes:", True, (100, 255, 200))
+            screen.blit(tome_title, (wp_x, wp_y))
+            wp_y += 22
+            for tid, tlevel in player.tomes.items():
+                tname = TOME_DEFS[tid]["name"]
+                tcol = TOME_DEFS[tid]["icon_color"]
+                t_text = font_desc.render(f"{tname} x{tlevel}", True, tcol)
+                screen.blit(t_text, (wp_x, wp_y))
+                wp_y += 20
+
+        # Level-up screen
         if is_level_up_screen:
-            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 180))
-            screen.blit(overlay, (0, 0))
-            title = font_lg.render('LEVEL UP! Choose Upgrade:', True, WHITE)
-            screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, 100))
-            card_w, card_h, spacing = 250, 350, 50
-            start_x = (WINDOW_WIDTH - (3*card_w + 2*spacing)) // 2
-            start_y = (WINDOW_HEIGHT - card_h) // 2
-            mx, my = pygame.mouse.get_pos()
-            for idx, upgrade in enumerate(upgrades_offered):
-                rect = pygame.Rect(start_x + idx*(card_w+spacing), start_y, card_w, card_h)
-                base_col = RARITY_COLORS.get(upgrade["rarity"], WHITE)
-                bg_col = (base_col[0]//4, base_col[1]//4, base_col[2]//4) if not rect.collidepoint(mx, my) else (base_col[0]//3, base_col[1]//3, base_col[2]//3)
-                
-                pygame.draw.rect(screen, bg_col, rect, border_radius=10)
-                pygame.draw.rect(screen, base_col, rect, 4, border_radius=10)
-                
-                name_surf = font_sm.render(upgrade['name'], True, WHITE)
-                screen.blit(name_surf, (rect.centerx - name_surf.get_width()//2, rect.top + 30))
-                
-                rar_surf = font_rar.render(upgrade['rarity'], True, base_col)
-                screen.blit(rar_surf, (rect.centerx - rar_surf.get_width()//2, rect.top + 65))
-                parts = upgrade['desc'].split(", ")
-                for i, part in enumerate(parts):
-                    d_surf = font_desc.render(part, True, (200, 200, 200))
-                    screen.blit(d_surf, (rect.centerx - d_surf.get_width()//2, rect.centery + (i * 25) - 20))
+            draw_level_up_screen(screen, upgrades_offered, player, fonts)
 
         pygame.display.flip()
 
