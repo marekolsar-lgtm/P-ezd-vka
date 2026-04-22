@@ -570,10 +570,195 @@ class Item(pygame.sprite.Sprite):
                 self.rect.x += int((dx / dist) * speed)
                 self.rect.y += int((dy / dist) * speed)
 
+# =============================================
+# Character Definitions
+# =============================================
+CHARACTER_DEFS = {
+    "knight": {
+        "name": "Knight",
+        "desc": "Balanced warrior with sturdy armor",
+        "skin": (255, 224, 189),
+        "skin_shadow": (230, 190, 150),
+        "hair": (80, 40, 0),
+        "hair_highlight": (100, 50, 0),
+        "shirt": (30, 90, 200),
+        "shirt_dark": (20, 70, 160),
+        "shirt_light": (50, 120, 255),
+        "pants": (20, 20, 80),
+        "boots": (50, 50, 50),
+        "belt": (90, 45, 0),
+        "buckle": (255, 215, 0),
+        "buckle_dark": (200, 150, 0),
+        "eye_white": (255, 255, 255),
+        "eye_pupil": (20, 20, 30),
+        "cape": None,
+    },
+    "mage": {
+        "name": "Mage",
+        "desc": "Mystical sorcerer with arcane power",
+        "skin": (240, 215, 195),
+        "skin_shadow": (210, 180, 160),
+        "hair": (200, 200, 220),
+        "hair_highlight": (230, 230, 245),
+        "shirt": (90, 40, 160),
+        "shirt_dark": (65, 25, 120),
+        "shirt_light": (120, 60, 200),
+        "pants": (60, 30, 100),
+        "boots": (40, 20, 60),
+        "belt": (70, 50, 90),
+        "buckle": (180, 100, 255),
+        "buckle_dark": (140, 70, 200),
+        "eye_white": (255, 255, 255),
+        "eye_pupil": (100, 50, 180),
+        "cape": (100, 50, 180),
+    },
+    "rogue": {
+        "name": "Rogue",
+        "desc": "Swift and deadly shadow striker",
+        "skin": (220, 195, 165),
+        "skin_shadow": (190, 160, 130),
+        "hair": (25, 25, 30),
+        "hair_highlight": (45, 45, 55),
+        "shirt": (40, 50, 40),
+        "shirt_dark": (25, 35, 25),
+        "shirt_light": (55, 70, 55),
+        "pants": (30, 30, 30),
+        "boots": (35, 30, 25),
+        "belt": (50, 40, 30),
+        "buckle": (150, 150, 150),
+        "buckle_dark": (100, 100, 100),
+        "eye_white": (255, 255, 255),
+        "eye_pupil": (30, 60, 30),
+        "cape": None,
+    },
+    "berserker": {
+        "name": "Berserker",
+        "desc": "Savage fighter fueled by rage",
+        "skin": (210, 170, 135),
+        "skin_shadow": (180, 140, 105),
+        "hair": (180, 50, 20),
+        "hair_highlight": (210, 80, 40),
+        "shirt": (160, 50, 30),
+        "shirt_dark": (120, 35, 20),
+        "shirt_light": (200, 70, 40),
+        "pants": (80, 50, 30),
+        "boots": (60, 40, 25),
+        "belt": (100, 60, 30),
+        "buckle": (200, 180, 50),
+        "buckle_dark": (160, 140, 30),
+        "eye_white": (255, 255, 255),
+        "eye_pupil": (150, 30, 10),
+        "cape": None,
+    },
+}
+
+def draw_character_sprite(surf, character_id, char_config, is_walking=False, step=0):
+    """Standalone funkce pro vykreslení postavy podle char_config barev."""
+    c = char_config
+    surf.fill((0, 0, 0, 0))
+
+    # Stín
+    shadow_w = 20 if not is_walking else 22
+    shadow_x = 4 if not is_walking else 3
+    pygame.draw.ellipse(surf, (0, 0, 0, 80), (shadow_x, 23, shadow_w, 5))
+
+    # Nohy
+    leg_y = 19
+    leg1_y = leg_y - (2 if is_walking and step in [0, 1] else 0)
+    leg2_y = leg_y - (2 if is_walking and step in [2, 3] else 0)
+    pygame.draw.rect(surf, c["pants"], (8, leg1_y, 4, 7))
+    pygame.draw.rect(surf, c["boots"], (7, leg1_y + 5, 6, 3), border_radius=1)
+    pygame.draw.rect(surf, c["pants"], (16, leg2_y, 4, 7))
+    pygame.draw.rect(surf, c["boots"], (15, leg2_y + 5, 6, 3), border_radius=1)
+
+    # Plášť (za tělem, pokud postava má)
+    if c.get("cape"):
+        sway = 1 if is_walking and step in [1, 3] else 0
+        pygame.draw.polygon(surf, c["cape"],
+                            [(6, 12), (22, 12), (23 + sway, 22), (5 - sway, 22)])
+        darker = tuple(max(0, v - 30) for v in c["cape"])
+        pygame.draw.polygon(surf, darker,
+                            [(8, 16), (20, 16), (21 + sway, 22), (7 - sway, 22)])
+
+    # Zadní ruka
+    arm1_y = 12 - (1 if is_walking and step in [2, 3] else 0)
+    pygame.draw.rect(surf, c["shirt_dark"], (4, arm1_y, 4, 7), border_radius=2)
+    pygame.draw.rect(surf, c["skin"], (4, arm1_y + 5, 4, 3), border_radius=1)
+
+    # Tělo
+    pygame.draw.rect(surf, c["shirt"], (6, 10, 16, 10), border_radius=3)
+    pygame.draw.rect(surf, c["shirt_dark"], (6, 15, 16, 5),
+                     border_bottom_left_radius=3, border_bottom_right_radius=3)
+    pygame.draw.rect(surf, c["shirt_light"], (7, 10, 14, 3),
+                     border_top_left_radius=3, border_top_right_radius=3)
+
+    # Opasek
+    pygame.draw.rect(surf, c["belt"], (6, 17, 16, 3))
+    pygame.draw.rect(surf, c["buckle"], (12, 16, 4, 5), border_radius=1)
+    pygame.draw.rect(surf, c["buckle_dark"], (13, 17, 2, 3))
+
+    # Hlava
+    pygame.draw.rect(surf, c["skin"], (7, 2, 14, 11), border_radius=4)
+    pygame.draw.rect(surf, c["skin_shadow"], (7, 9, 14, 4),
+                     border_bottom_left_radius=4, border_bottom_right_radius=4)
+
+    # Vlasy (základ)
+    pygame.draw.rect(surf, c["hair"], (6, 0, 16, 4),
+                     border_top_left_radius=5, border_top_right_radius=5)
+    pygame.draw.rect(surf, c["hair"], (6, 3, 3, 5))
+    pygame.draw.rect(surf, c["hair"], (19, 3, 3, 4))
+    pygame.draw.rect(surf, c["hair_highlight"], (8, 0, 12, 2), border_radius=1)
+
+    # Unikátní detaily podle postavy
+    if character_id == "knight":
+        # Helmice – kovový pásek přes čelo
+        pygame.draw.rect(surf, (160, 160, 170), (7, 0, 14, 2),
+                         border_top_left_radius=3, border_top_right_radius=3)
+        pygame.draw.rect(surf, (120, 120, 130), (9, 2, 10, 1))
+    elif character_id == "mage":
+        # Špičatý klobouk
+        pygame.draw.polygon(surf, c["shirt"], [(14, -4), (6, 4), (22, 4)])
+        pygame.draw.polygon(surf, c["shirt_light"], [(14, -3), (8, 3), (14, 3)])
+        pygame.draw.circle(surf, (255, 255, 150), (14, -1), 2)
+    elif character_id == "rogue":
+        # Kapuce a maska
+        pygame.draw.rect(surf, (20, 25, 20), (6, 0, 16, 3),
+                         border_top_left_radius=5, border_top_right_radius=5)
+        pygame.draw.rect(surf, (30, 35, 30), (7, 9, 14, 4), border_radius=2)
+    elif character_id == "berserker":
+        # Válečný make-up
+        pygame.draw.line(surf, (180, 30, 10), (8, 5), (8, 10), 2)
+        pygame.draw.line(surf, (180, 30, 10), (19, 5), (19, 10), 2)
+        # Trčící vlasy
+        pygame.draw.polygon(surf, c["hair"], [(7, 0), (9, -3), (11, 0)])
+        pygame.draw.polygon(surf, c["hair"], [(12, 0), (14, -4), (16, 0)])
+        pygame.draw.polygon(surf, c["hair"], [(17, 0), (19, -3), (21, 0)])
+
+    # Oči
+    pygame.draw.rect(surf, c["eye_white"], (9, 6, 4, 4), border_radius=1)
+    pygame.draw.rect(surf, c["eye_white"], (15, 6, 4, 4), border_radius=1)
+    pygame.draw.rect(surf, c["eye_pupil"], (10, 7, 2, 2))
+    pygame.draw.rect(surf, c["eye_pupil"], (16, 7, 2, 2))
+    # Odlesk v oku
+    pygame.draw.rect(surf, (255, 255, 255), (11, 6, 1, 1))
+    pygame.draw.rect(surf, (255, 255, 255), (17, 6, 1, 1))
+
+    # Ústa
+    if character_id != "rogue":  # rogue má masku
+        pygame.draw.line(surf, c["skin_shadow"], (11, 11), (16, 11), 1)
+
+    # Přední ruka
+    arm2_y = 12 - (1 if is_walking and step in [0, 1] else 0)
+    pygame.draw.rect(surf, c["shirt_light"], (20, arm2_y, 4, 7), border_radius=2)
+    pygame.draw.rect(surf, c["skin"], (20, arm2_y + 5, 4, 3), border_radius=1)
+
+
 # Třída pro hráče (s animacemi)
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y, character_id="knight"):
         super().__init__()
+        self.character_id = character_id
+        self.char_config = CHARACTER_DEFS.get(character_id, CHARACTER_DEFS["knight"])
         self.width = PLAYER_WIDTH
         self.height = PLAYER_HEIGHT
         self.rect = pygame.Rect(x, y, self.width, self.height)
@@ -599,6 +784,11 @@ class Player(pygame.sprite.Sprite):
         self.max_xp = 10
         self.hit_enemies = set()
         self.level_up_pending = 0
+
+        # Health regen
+        self.health_regen_timer = 0
+        self.health_regen_rate = 120  # 120 snímků = 2 sekundy při 60 FPS
+        self.health_regen_amount = 1
 
         # MegaBonk weapon/tome system
         self.weapons = {"sword": 1}  # weapon_id: level
@@ -628,61 +818,7 @@ class Player(pygame.sprite.Sprite):
         self.image = self.animation_frames['idle'][0]
 
     def draw_player_base(self, surf, is_walking=False, step=0):
-        surf.fill((0, 0, 0, 0))
-        
-        # Stín pod postavou (dynamický podle pohybu)
-        shadow_w = 20 if not is_walking else 22
-        shadow_x = 4 if not is_walking else 3
-        pygame.draw.ellipse(surf, (0, 0, 0, 80), (shadow_x, 23, shadow_w, 5))
-        
-        # Nohy s animací chůze (kalhoty a boty)
-        leg_y = 19
-        leg1_y = leg_y - (2 if is_walking and step in [0, 1] else 0)
-        leg2_y = leg_y - (2 if is_walking and step in [2, 3] else 0)
-        
-        # Levá noha (zadní)
-        pygame.draw.rect(surf, (20, 20, 80), (8, leg1_y, 4, 7))
-        pygame.draw.rect(surf, (50, 50, 50), (7, leg1_y + 5, 6, 3), border_radius=1) # bota
-        
-        # Pravá noha (přední)
-        pygame.draw.rect(surf, (20, 20, 80), (16, leg2_y, 4, 7))
-        pygame.draw.rect(surf, (50, 50, 50), (15, leg2_y + 5, 6, 3), border_radius=1) # bota
-        
-        # Zadní ruka (za tělem)
-        arm1_y = 12 - (1 if is_walking and step in [2, 3] else 0)
-        pygame.draw.rect(surf, (0, 80, 180), (4, arm1_y, 4, 7), border_radius=2)
-        pygame.draw.rect(surf, (255, 224, 189), (4, arm1_y + 5, 4, 3), border_radius=1) # ruka
-        
-        # Tělo
-        pygame.draw.rect(surf, (0, 100, 220), (6, 10, 16, 10), border_radius=3)
-        pygame.draw.rect(surf, (0, 80, 180), (6, 15, 16, 5), border_bottom_left_radius=3, border_bottom_right_radius=3) # stín
-        
-        # Opasek
-        pygame.draw.rect(surf, (90, 45, 0), (6, 17, 16, 3)) 
-        pygame.draw.rect(surf, (255, 215, 0), (12, 16, 4, 5), border_radius=1) # spona
-        pygame.draw.rect(surf, (200, 150, 0), (13, 17, 2, 3))
-        
-        # Hlava
-        pygame.draw.rect(surf, (255, 224, 189), (7, 2, 14, 11), border_radius=4)
-        pygame.draw.rect(surf, (230, 190, 150), (7, 9, 14, 4), border_bottom_left_radius=4, border_bottom_right_radius=4) # stín na tváři
-        
-        # Vlasy
-        pygame.draw.rect(surf, (80, 40, 0), (6, 0, 16, 4), border_top_left_radius=5, border_top_right_radius=5)
-        pygame.draw.rect(surf, (80, 40, 0), (6, 3, 3, 5))
-        pygame.draw.rect(surf, (80, 40, 0), (19, 3, 3, 4))
-        pygame.draw.rect(surf, (100, 50, 0), (8, 0, 12, 2), border_radius=1) # odlesk
-        
-        # Oči
-        pygame.draw.rect(surf, (255, 255, 255), (9, 6, 4, 4), border_radius=1)
-        pygame.draw.rect(surf, (255, 255, 255), (15, 6, 4, 4), border_radius=1)
-        
-        pygame.draw.rect(surf, (20, 20, 30), (10, 7, 2, 2)) # zornička
-        pygame.draw.rect(surf, (20, 20, 30), (16, 7, 2, 2)) # zornička
-        
-        # Přední ruka (před tělem)
-        arm2_y = 12 - (1 if is_walking and step in [0, 1] else 0)
-        pygame.draw.rect(surf, (0, 120, 255), (20, arm2_y, 4, 7), border_radius=2)
-        pygame.draw.rect(surf, (255, 224, 189), (20, arm2_y + 5, 4, 3), border_radius=1) # ruka
+        draw_character_sprite(surf, self.character_id, self.char_config, is_walking, step)
 
     def create_idle_frames(self):
         frames = []
@@ -777,6 +913,18 @@ class Player(pygame.sprite.Sprite):
                 self.vel_x *= inv
                 self.vel_y *= inv
 
+        # Neustále sleduj myš pro úhel útoku
+        if camera:
+            mx, my = pygame.mouse.get_pos()
+            # Zapracování ZOOMu do projekce myši
+            world_mx = (mx / ZOOM) - camera.rect.x
+            world_my = (my / ZOOM) - camera.rect.y
+            dx = world_mx - self.rect.centerx
+            dy = world_my - self.rect.centery
+            self.attack_angle = math.degrees(math.atan2(dy, dx))
+            if not self.attacking:
+                self.facing_right = dx >= 0
+
         # Útok (automatický) - sword weapon z MegaBonk systému
         sword_level = self.weapons.get("sword", 0)
         if sword_level > 0 and self.attack_cooldown <= 0:
@@ -786,17 +934,8 @@ class Player(pygame.sprite.Sprite):
             self.attack_timer = ATTACK_DURATION
             self.attack_cooldown = effective_cooldown
             self.hit_enemies.clear()
-            
-            if camera:
-                mx, my = pygame.mouse.get_pos()
-                # Zapracování ZOOMu do projekce myši
-                world_mx = (mx / ZOOM) - camera.rect.x
-                world_my = (my / ZOOM) - camera.rect.y
-                dx = world_mx - self.rect.centerx
-                dy = world_my - self.rect.centery
-                self.attack_angle = math.degrees(math.atan2(dy, dx))
-                self.facing_right = dx >= 0
-            else:
+
+            if not camera:
                 self.attack_angle = 0 if self.facing_right else 180
 
     def move(self, blocks):
@@ -848,6 +987,15 @@ class Player(pygame.sprite.Sprite):
 
         if self.hit_cooldown > 0:
             self.hit_cooldown -= 1
+
+        # Health regen
+        if self.health < self.max_health and not self.is_dead():
+            self.health_regen_timer += 1
+            if self.health_regen_timer >= self.health_regen_rate:
+                self.heal(self.health_regen_amount)
+                self.health_regen_timer = 0
+        else:
+            self.health_regen_timer = 0
 
         # Damage boost timer
         if self.damage_boost_timer > 0:
@@ -910,85 +1058,187 @@ class Player(pygame.sprite.Sprite):
         if self.attacking:
             center = camera.apply(self).center
             reach = self.get_sword_reach()
-            arc_radius = reach * 1.5
-            
-            # Větší plocha pro vykreslení srpu
-            surf_size = int(arc_radius * 3)
+            arc_radius = reach * 1.8
+            blade_length = reach * 1.6
+
+            # Surface pro celý efekt
+            surf_size = int(arc_radius * 4)
             swoosh_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
-            
+
             progress = 1.0 - (self.attack_timer / ATTACK_DURATION)
-            
-            visual_attack_angle = -self.attack_angle
-            start_deg = visual_attack_angle - 100
-            
-            # Celkový úhel švihu
-            swing_extent = 200
-            current_extent = swing_extent * progress
-            end_deg = start_deg + current_extent
-            
-            points_outer = []
-            points_inner = []
-            
+            # Easing – zrychlení na začátku, zpomalení na konci
+            eased = 1.0 - (1.0 - progress) ** 2.5
+
+            half_swing = 60  # polovina úhlu švihu (celkem 120°)
+            current_angle = self.attack_angle - half_swing + (half_swing * 2) * eased
+
             scx = surf_size // 2
             scy = surf_size // 2
-            
-            segments = max(5, int(current_extent / 10))
-            if segments > 0 and current_extent > 0:
-                for i in range(segments + 1):
-                    t = i / segments
-                    angle_deg = start_deg + t * current_extent
-                    angle_rad = math.radians(angle_deg)
-                    
-                    # Profil tloušťky
-                    thickness_factor = math.sin(t * math.pi)
-                    
-                    # Tloušťka srpku (rozšiřuje se a zužuje)
-                    current_thickness = arc_radius * 0.4 * thickness_factor
-                    
-                    # Vnější oblouk
-                    ox = scx + math.cos(angle_rad) * arc_radius
-                    oy = scy + math.sin(angle_rad) * arc_radius
-                    points_outer.append((ox, oy))
-                    
-                    # Vnitřní oblouk
-                    ix = scx + math.cos(angle_rad) * (arc_radius - current_thickness)
-                    iy = scy + math.sin(angle_rad) * (arc_radius - current_thickness)
-                    points_inner.append((ix, iy))
-                
-                points_inner.reverse()
-                slash_polygon = points_outer + points_inner
-                
-                # Barva podle boostu útoku
-                base_color = (100, 200, 255) # Cyan/modrá záře
-                if getattr(self, 'damage_boost_timer', 0) > 0:
-                    base_color = (255, 100, 50) # Zlatá/oranžová při boostu
-                
-                alpha_glow = max(0, int(200 * (1 - progress)))
-                pygame.draw.polygon(swoosh_surf, (*base_color, alpha_glow), slash_polygon)
-                
-                # Bílý střed srpku pro ostřejší hranu
-                points_core_outer = []
-                points_core_inner = []
-                for i in range(segments + 1):
-                    t = i / segments
-                    angle_deg = start_deg + t * current_extent
-                    angle_rad = math.radians(angle_deg)
-                    thickness_factor = math.sin(t * math.pi)
-                    
-                    core_thickness = arc_radius * 0.15 * thickness_factor
-                    
-                    ox = scx + math.cos(angle_rad) * (arc_radius - 2)
-                    oy = scy + math.sin(angle_rad) * (arc_radius - 2)
-                    ix = scx + math.cos(angle_rad) * (arc_radius - 2 - core_thickness)
-                    iy = scy + math.sin(angle_rad) * (arc_radius - 2 - core_thickness)
-                    
-                    points_core_outer.append((ox, oy))
-                    points_core_inner.insert(0, (ix, iy))
-                    
-                core_polygon = points_core_outer + points_core_inner
-                alpha_core = max(0, min(255, int(255 * (1.2 - progress))))
-                pygame.draw.polygon(swoosh_surf, (255, 255, 255, alpha_core), core_polygon)
-            
+
+            # Barva podle boostu
+            if getattr(self, 'damage_boost_timer', 0) > 0:
+                trail_color = (255, 140, 40)    # oranžová
+                blade_color = (255, 200, 100)
+                glow_color = (255, 100, 20)
+            else:
+                trail_color = (120, 200, 255)    # ledově modrá
+                blade_color = (200, 230, 255)
+                glow_color = (80, 160, 255)
+
+            # ==========================================
+            # 1) SWOOSH TRAIL – vějířovitý trail za čepelí
+            # ==========================================
+            trail_segments = 18
+            trail_start_angle = self.attack_angle - half_swing
+            trail_extent = (half_swing * 2) * eased
+
+            if trail_extent > 2:
+                # Vnější oblouk (ostrá hrana)
+                for layer in range(3):
+                    pts_outer = []
+                    pts_inner = []
+                    # Každá vrstva je tenčí a světlejší
+                    layer_radius = arc_radius - layer * 4
+                    layer_thickness_max = (arc_radius * 0.35) * (1.0 - layer * 0.3)
+
+                    for i in range(trail_segments + 1):
+                        t = i / trail_segments
+                        a_deg = trail_start_angle + t * trail_extent
+                        a_rad = math.radians(a_deg)
+
+                        # Tloušťka roste od nuly na začátku k maximu uprostřed a klesá
+                        # ale přední hrana (kde je čepel) je silnější
+                        shape = math.sin(t * math.pi) ** 0.6
+                        fade = t  # trail se zesiluje směrem k čepeli
+                        thickness = layer_thickness_max * shape * max(0.15, fade)
+
+                        ox = scx + math.cos(a_rad) * layer_radius
+                        oy = scy + math.sin(a_rad) * layer_radius
+                        pts_outer.append((ox, oy))
+
+                        ix = scx + math.cos(a_rad) * (layer_radius - thickness)
+                        iy = scy + math.sin(a_rad) * (layer_radius - thickness)
+                        pts_inner.append((ix, iy))
+
+                    pts_inner.reverse()
+                    poly = pts_outer + pts_inner
+
+                    if len(poly) >= 3:
+                        # Vnější vrstva = trail_color, vnitřní = bílá
+                        if layer == 0:
+                            a = max(0, int(130 * (1.0 - progress * 0.7)))
+                            col = (*trail_color, a)
+                        elif layer == 1:
+                            a = max(0, int(180 * (1.0 - progress * 0.6)))
+                            col = (*blade_color, a)
+                        else:
+                            a = max(0, int(220 * (1.0 - progress * 0.5)))
+                            col = (255, 255, 255, a)
+                        pygame.draw.polygon(swoosh_surf, col, poly)
+
+            # ==========================================
+            # 2) MEČI / BLADE – vykreslení samotného meče
+            # ==========================================
+            blade_angle_rad = math.radians(current_angle)
+
+            # Pozice špičky a base meče
+            tip_x = scx + math.cos(blade_angle_rad) * blade_length
+            tip_y = scy + math.sin(blade_angle_rad) * blade_length
+            guard_x = scx + math.cos(blade_angle_rad) * (blade_length * 0.3)
+            guard_y = scy + math.sin(blade_angle_rad) * (blade_length * 0.3)
+            pommel_x = scx + math.cos(blade_angle_rad) * (blade_length * 0.12)
+            pommel_y = scy + math.sin(blade_angle_rad) * (blade_length * 0.12)
+
+            # Kolmý vektor pro šířku čepele
+            perp_x = -math.sin(blade_angle_rad)
+            perp_y = math.cos(blade_angle_rad)
+
+            blade_width = 4.0
+            guard_width = 8.0
+
+            # Čepel (lichoběžník – úzká u špičky, širší u záštity)
+            blade_poly = [
+                (tip_x + perp_x * 1, tip_y + perp_y * 1),
+                (tip_x - perp_x * 1, tip_y - perp_y * 1),
+                (guard_x - perp_x * blade_width, guard_y - perp_y * blade_width),
+                (guard_x + perp_x * blade_width, guard_y + perp_y * blade_width),
+            ]
+            # Stín čepele (tmavší)
+            pygame.draw.polygon(swoosh_surf, (140, 150, 170, 220), blade_poly)
+            # Světlý lesk na čepeli
+            highlight_poly = [
+                (tip_x + perp_x * 0.5, tip_y + perp_y * 0.5),
+                (tip_x - perp_x * 0.3, tip_y - perp_y * 0.3),
+                (guard_x - perp_x * (blade_width * 0.4), guard_y - perp_y * (blade_width * 0.4)),
+                (guard_x + perp_x * (blade_width * 0.6), guard_y + perp_y * (blade_width * 0.6)),
+            ]
+            pygame.draw.polygon(swoosh_surf, (220, 230, 245, 240), highlight_poly)
+
+            # Záštita (guard) – krátká příčka
+            guard_pts = [
+                (guard_x + perp_x * guard_width, guard_y + perp_y * guard_width),
+                (guard_x - perp_x * guard_width, guard_y - perp_y * guard_width),
+                (guard_x - perp_x * guard_width - math.cos(blade_angle_rad) * 2,
+                 guard_y - perp_y * guard_width - math.sin(blade_angle_rad) * 2),
+                (guard_x + perp_x * guard_width - math.cos(blade_angle_rad) * 2,
+                 guard_y + perp_y * guard_width - math.sin(blade_angle_rad) * 2),
+            ]
+            pygame.draw.polygon(swoosh_surf, (200, 170, 50, 230), guard_pts)
+
+            # Rukojeť
+            pygame.draw.line(swoosh_surf, (110, 70, 30, 220),
+                             (int(guard_x), int(guard_y)),
+                             (int(pommel_x), int(pommel_y)), 4)
+            # Hlavice
+            pygame.draw.circle(swoosh_surf, (200, 170, 50, 200),
+                               (int(pommel_x), int(pommel_y)), 3)
+
+            # ==========================================
+            # 3) GLOW na špičce čepele
+            # ==========================================
+            glow_alpha = max(0, int(160 * (1.0 - progress)))
+            glow_r = int(12 + 6 * math.sin(progress * math.pi))
+            if glow_r > 2:
+                glow_s = pygame.Surface((glow_r * 4, glow_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (*glow_color, glow_alpha // 2), (glow_r * 2, glow_r * 2), glow_r * 2)
+                pygame.draw.circle(glow_s, (255, 255, 255, glow_alpha), (glow_r * 2, glow_r * 2), glow_r)
+                swoosh_surf.blit(glow_s, (int(tip_x) - glow_r * 2, int(tip_y) - glow_r * 2))
+
+            # ==========================================
+            # 4) JISKRY / sparks vyletující ze špičky
+            # ==========================================
+            if progress < 0.85:
+                num_sparks = 4
+                for s in range(num_sparks):
+                    spark_spread = random.uniform(-0.5, 0.5)
+                    spark_dist = random.uniform(4, 16)
+                    spark_a = blade_angle_rad + spark_spread
+                    sx = tip_x + math.cos(spark_a) * spark_dist
+                    sy = tip_y + math.sin(spark_a) * spark_dist
+                    spark_alpha = random.randint(120, 220)
+                    spark_size = random.randint(1, 3)
+                    spark_col = (255, 255, random.randint(150, 255), spark_alpha)
+                    pygame.draw.circle(swoosh_surf, spark_col, (int(sx), int(sy)), spark_size)
+
+            # ==========================================
+            # 5) IMPACT FLASH na konci švihu
+            # ==========================================
+            if progress > 0.8:
+                impact_progress = (progress - 0.8) / 0.2
+                impact_alpha = max(0, int(100 * (1.0 - impact_progress)))
+                impact_r = int(20 + 30 * impact_progress)
+                if impact_alpha > 0 and impact_r > 0:
+                    imp_surf = pygame.Surface((impact_r * 2, impact_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(imp_surf, (*trail_color, impact_alpha // 3),
+                                       (impact_r, impact_r), impact_r)
+                    pygame.draw.circle(imp_surf, (255, 255, 255, impact_alpha // 2),
+                                       (impact_r, impact_r), impact_r // 2)
+                    # Pozice impactu = konec švihu
+                    end_angle_rad = math.radians(self.attack_angle + half_swing)
+                    imp_x = scx + math.cos(end_angle_rad) * arc_radius * 0.7
+                    imp_y = scy + math.sin(end_angle_rad) * arc_radius * 0.7
+                    swoosh_surf.blit(imp_surf, (int(imp_x) - impact_r, int(imp_y) - impact_r))
+
             screen.blit(swoosh_surf, swoosh_surf.get_rect(center=center))
 
     def draw_fire_ring(self, screen, camera):
@@ -1594,7 +1844,7 @@ def draw_level_up_screen(screen, upgrades_offered, player, fonts):
 
 
 # Hlavní funkce hry
-def main():
+def main(character_id="knight"):
     global WORLD_WIDTH_PX, WORLD_HEIGHT_PX
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption(TITLE)
@@ -1620,7 +1870,7 @@ def main():
     start_room = rooms[0]
     start_x = start_room['x'] + start_room['width'] // 2
     start_y = start_room['y'] + start_room['height'] // 2
-    player = Player(start_x, start_y)
+    player = Player(start_x, start_y, character_id)
 
     # Spawn nepřátel (startovní místnost bez nepřátel)
     enemies = pygame.sprite.Group()
@@ -2073,21 +2323,227 @@ def main():
                     
     return "quit"
 
+# =============================================
+# Character Select Screen
+# =============================================
+def show_character_select(screen, current_character="knight"):
+    """Zobrazí obrazovku výběru postavy s animovanými náhledy."""
+    clock = pygame.time.Clock()
+    title_font = pygame.font.Font(None, 80)
+    name_font = pygame.font.Font(None, 48)
+    desc_font = pygame.font.Font(None, 28)
+    btn_font = pygame.font.Font(None, 50)
+
+    char_ids = list(CHARACTER_DEFS.keys())
+    selected = char_ids.index(current_character) if current_character in char_ids else 0
+
+    # Předvykreslení náhledů postav (zvětšené 5×)
+    scale = 5
+    previews = {}
+    walk_frames = {}
+    for cid in char_ids:
+        cdef = CHARACTER_DEFS[cid]
+        # Idle frame
+        surf = pygame.Surface((PLAYER_WIDTH, PLAYER_HEIGHT), pygame.SRCALPHA)
+        draw_character_sprite(surf, cid, cdef)
+        previews[cid] = pygame.transform.scale(surf, (PLAYER_WIDTH * scale, PLAYER_HEIGHT * scale))
+        # Walk frames
+        frames = []
+        for step in range(4):
+            ws = pygame.Surface((PLAYER_WIDTH, PLAYER_HEIGHT), pygame.SRCALPHA)
+            draw_character_sprite(ws, cid, cdef, is_walking=True, step=step)
+            frames.append(pygame.transform.scale(ws, (PLAYER_WIDTH * scale, PLAYER_HEIGHT * scale)))
+        walk_frames[cid] = frames
+
+    anim_timer = 0
+
+    # Částice pozadí
+    particles = []
+    for _ in range(40):
+        particles.append([
+            random.randint(0, WINDOW_WIDTH),
+            random.randint(0, WINDOW_HEIGHT),
+            random.uniform(0.3, 1.5),
+            random.randint(30, 80)
+        ])
+
+    while True:
+        mx, my = pygame.mouse.get_pos()
+        clicked = False
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                clicked = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    selected = (selected - 1) % len(char_ids)
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    selected = (selected + 1) % len(char_ids)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return char_ids[selected]
+                elif event.key == pygame.K_ESCAPE:
+                    return current_character
+
+        anim_timer += 1
+        anim_frame = (anim_timer // 10) % 4
+
+        # Update particles
+        for p in particles:
+            p[1] -= p[2]
+            if p[1] < -10:
+                p[1] = WINDOW_HEIGHT + 10
+                p[0] = random.randint(0, WINDOW_WIDTH)
+
+        # Pozadí
+        screen.fill((15, 15, 25))
+        for p in particles:
+            pygame.draw.circle(screen, (p[3], p[3], p[3] + 20),
+                               (int(p[0]), int(p[1])), int(p[2] * 2))
+
+        # Titulek
+        title = title_font.render("SELECT CHARACTER", True, (255, 215, 0))
+        title_shadow = title_font.render("SELECT CHARACTER", True, (80, 60, 0))
+        screen.blit(title_shadow, (WINDOW_WIDTH // 2 - title.get_width() // 2 + 3, 53))
+        screen.blit(title, (WINDOW_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Karty postav
+        card_w, card_h = 280, 420
+        spacing = 40
+        total_w = len(char_ids) * card_w + (len(char_ids) - 1) * spacing
+        start_x = (WINDOW_WIDTH - total_w) // 2
+        start_y = (WINDOW_HEIGHT - card_h) // 2 + 20
+
+        for idx, cid in enumerate(char_ids):
+            cdef = CHARACTER_DEFS[cid]
+            cx = start_x + idx * (card_w + spacing)
+            rect = pygame.Rect(cx, start_y, card_w, card_h)
+            is_selected = (idx == selected)
+            hovered = rect.collidepoint(mx, my)
+
+            if hovered and clicked:
+                selected = idx
+
+            # Glow efekt (vybraná)
+            if is_selected:
+                glow_surf = pygame.Surface((card_w + 20, card_h + 20), pygame.SRCALPHA)
+                glow_pulse = 30 + int(15 * math.sin(anim_timer * 0.05))
+                pygame.draw.rect(glow_surf, (255, 215, 0, glow_pulse),
+                                 (0, 0, card_w + 20, card_h + 20), border_radius=16)
+                screen.blit(glow_surf, (cx - 10, start_y - 10))
+
+            # Pozadí karty
+            bg = (45, 42, 60) if is_selected else (35, 35, 55)
+            if hovered and not is_selected:
+                bg = (40, 40, 60)
+            pygame.draw.rect(screen, bg, rect, border_radius=12)
+
+            # Barevný gradient nahoře
+            grad = pygame.Surface((card_w, card_h // 3), pygame.SRCALPHA)
+            grad.fill((*cdef["shirt"], 20))
+            screen.blit(grad, (cx, start_y))
+
+            # Okraj
+            border_col = (255, 215, 0) if is_selected else (80, 80, 100)
+            border_w = 3 if is_selected else 2
+            pygame.draw.rect(screen, border_col, rect, border_w, border_radius=12)
+
+            # Náhled postavy
+            preview_y = start_y + 55
+            if is_selected:
+                frame = walk_frames[cid][anim_frame]
+            else:
+                frame = previews[cid]
+            preview_rect = frame.get_rect(center=(rect.centerx, preview_y + PLAYER_HEIGHT * scale // 2))
+            screen.blit(frame, preview_rect)
+
+            # Podstavec pod postavou
+            plat_y = preview_y + PLAYER_HEIGHT * scale - 5
+            plat_surf = pygame.Surface((70, 12), pygame.SRCALPHA)
+            pygame.draw.ellipse(plat_surf, (0, 0, 0, 60), (0, 0, 70, 12))
+            screen.blit(plat_surf, (rect.centerx - 35, plat_y))
+
+            # Jméno
+            name_col = (255, 255, 255) if is_selected else (180, 180, 180)
+            name_surf = name_font.render(cdef["name"], True, name_col)
+            screen.blit(name_surf, (rect.centerx - name_surf.get_width() // 2, start_y + card_h - 120))
+
+            # Oddělovací čára
+            sep_col = (255, 215, 0) if is_selected else (60, 60, 80)
+            pygame.draw.line(screen, sep_col,
+                             (cx + 30, start_y + card_h - 95),
+                             (cx + card_w - 30, start_y + card_h - 95), 1)
+
+            # Popis
+            desc_surf = desc_font.render(cdef["desc"], True, (160, 160, 180))
+            screen.blit(desc_surf, (rect.centerx - desc_surf.get_width() // 2, start_y + card_h - 75))
+
+            # "SELECTED" badge
+            if is_selected:
+                sel_surf = desc_font.render("\u2714 SELECTED", True, (255, 215, 0))
+                screen.blit(sel_surf, (rect.centerx - sel_surf.get_width() // 2, start_y + card_h - 40))
+
+        # Tlačítko Confirm
+        confirm_rect = pygame.Rect(WINDOW_WIDTH // 2 - 150, start_y + card_h + 40, 300, 60)
+        confirm_hover = confirm_rect.collidepoint(mx, my)
+        confirm_bg = (60, 140, 60) if confirm_hover else (40, 100, 40)
+        pygame.draw.rect(screen, confirm_bg, confirm_rect, border_radius=12)
+        pygame.draw.rect(screen, (100, 220, 100), confirm_rect, 2, border_radius=12)
+        confirm_text = btn_font.render("Confirm", True, WHITE)
+        screen.blit(confirm_text, (confirm_rect.centerx - confirm_text.get_width() // 2,
+                                   confirm_rect.centery - confirm_text.get_height() // 2))
+        if confirm_hover and clicked:
+            return char_ids[selected]
+
+        # Tlačítko Back
+        back_rect = pygame.Rect(30, WINDOW_HEIGHT - 70, 120, 45)
+        back_hover = back_rect.collidepoint(mx, my)
+        back_bg = (70, 50, 50) if back_hover else (50, 35, 35)
+        pygame.draw.rect(screen, back_bg, back_rect, border_radius=8)
+        pygame.draw.rect(screen, (150, 100, 100), back_rect, 2, border_radius=8)
+        back_text = desc_font.render("< Back", True, (200, 200, 200))
+        screen.blit(back_text, (back_rect.centerx - back_text.get_width() // 2,
+                                back_rect.centery - back_text.get_height() // 2))
+        if back_hover and clicked:
+            return current_character
+
+        # Hints
+        hint = desc_font.render("A/D to browse  |  Enter to confirm  |  Esc to go back",
+                                True, (100, 100, 120))
+        screen.blit(hint, (WINDOW_WIDTH // 2 - hint.get_width() // 2, WINDOW_HEIGHT - 30))
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 # Hlavní menu
-def main_menu():
+def main_menu(selected_character="knight"):
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
     menu_font = pygame.font.Font(None, 100)
     info_font = pygame.font.Font(None, 40)
     btn_font = pygame.font.Font(None, 60)
-    options = ["Start Game", "Quit"]
+    char_font = pygame.font.Font(None, 28)
+    options = ["Start Game", "Characters", "Quit"]
     selected = 0
-    
+
     # Animace pro pozadí menu
     particles = []
     for _ in range(50):
-        particles.append([random.randint(0, WINDOW_WIDTH), random.randint(0, WINDOW_HEIGHT), random.uniform(0.5, 2.0)])
+        particles.append([random.randint(0, WINDOW_WIDTH), random.randint(0, WINDOW_HEIGHT),
+                          random.uniform(0.5, 2.0)])
+
+    # Mini náhled aktuální postavy
+    def make_preview(cid):
+        cdef = CHARACTER_DEFS.get(cid, CHARACTER_DEFS["knight"])
+        surf = pygame.Surface((PLAYER_WIDTH, PLAYER_HEIGHT), pygame.SRCALPHA)
+        draw_character_sprite(surf, cid, cdef)
+        return pygame.transform.scale(surf, (PLAYER_WIDTH * 3, PLAYER_HEIGHT * 3))
+
+    char_preview = make_preview(selected_character)
 
     while True:
         mx, my = pygame.mouse.get_pos()
@@ -2106,7 +2562,10 @@ def main_menu():
                     selected = (selected + 1) % len(options)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if options[selected] == "Start Game":
-                        return "start"
+                        return ("start", selected_character)
+                    elif options[selected] == "Characters":
+                        selected_character = show_character_select(screen, selected_character)
+                        char_preview = make_preview(selected_character)
                     else:
                         pygame.quit()
                         sys.exit()
@@ -2118,31 +2577,43 @@ def main_menu():
                 p[1] = WINDOW_HEIGHT + 10
                 p[0] = random.randint(0, WINDOW_WIDTH)
 
-        screen.fill((20, 30, 20)) # Tmavě zelený nádech
-        
+        screen.fill((20, 30, 20))
+
         for p in particles:
-            pygame.draw.circle(screen, (50, 80, 50), (int(p[0]), int(p[1])), int(p[2]*2))
+            pygame.draw.circle(screen, (50, 80, 50), (int(p[0]), int(p[1])), int(p[2] * 2))
 
         # Titulek
         title_surf = menu_font.render(TITLE, True, (255, 215, 0))
         title_shadow = menu_font.render(TITLE, True, (0, 0, 0))
-        title_rect = title_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 3))
+        title_rect = title_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 4))
         screen.blit(title_shadow, title_rect.move(4, 4))
         screen.blit(title_surf, title_rect)
+
+        # Mini náhled aktuální postavy vedle titulku
+        char_name = CHARACTER_DEFS.get(selected_character, CHARACTER_DEFS["knight"])["name"]
+        preview_x = WINDOW_WIDTH // 2 + title_surf.get_width() // 2 + 30
+        preview_y = WINDOW_HEIGHT // 4 - PLAYER_HEIGHT * 3 // 2
+        screen.blit(char_preview, (preview_x, preview_y))
+        char_label = char_font.render(char_name, True, (180, 200, 180))
+        screen.blit(char_label, (preview_x + PLAYER_WIDTH * 3 // 2 - char_label.get_width() // 2,
+                                 preview_y + PLAYER_HEIGHT * 3 + 5))
 
         # Kreslení tlačítek
         button_width = 300
         button_height = 80
+        btn_start_y = WINDOW_HEIGHT // 2 - 40
         for idx, option in enumerate(options):
             btn_rect = pygame.Rect(0, 0, button_width, button_height)
-            btn_rect.center = (WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + idx * 110)
+            btn_rect.center = (WINDOW_WIDTH // 2, btn_start_y + idx * 100)
 
-            # Detekce myši
             if btn_rect.collidepoint(mx, my):
                 selected = idx
                 if clicked:
                     if options[selected] == "Start Game":
-                        return "start"
+                        return ("start", selected_character)
+                    elif options[selected] == "Characters":
+                        selected_character = show_character_select(screen, selected_character)
+                        char_preview = make_preview(selected_character)
                     else:
                         pygame.quit()
                         sys.exit()
@@ -2153,30 +2624,35 @@ def main_menu():
             pygame.draw.rect(screen, color_bg, btn_rect, border_radius=15)
             pygame.draw.rect(screen, WHITE, btn_rect, 3, border_radius=15)
 
-
             option_surf = btn_font.render(option, True, color_text)
             option_rect = option_surf.get_rect(center=btn_rect.center)
             screen.blit(option_surf, option_rect)
 
-        info_surf = info_font.render("Use W/S/Mouse to choose, Enter/Click to confirm", True, (100, 200, 100))
+        info_surf = info_font.render("Use W/S/Mouse to choose, Enter/Click to confirm",
+                                     True, (100, 200, 100))
         info_rect = info_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - 60))
         screen.blit(info_surf, info_rect)
 
         pygame.display.flip()
         clock.tick(FPS)
 
+
 if __name__ == "__main__":
+    selected_character = "knight"
     while True:
-        action = main_menu()
+        result = main_menu(selected_character)
+        if result is None:
+            break
+        action, selected_character = result
         if action == "quit":
             break
-        
+
         while True:
-            action = main()
+            action = main(selected_character)
             if action == "retry":
-                continue # Spustí main() znovu
+                continue  # Spustí main() znovu se stejnou postavou
             elif action == "menu":
-                break # Vylítne zpátky do main_menu() smyčky
+                break  # Vylítne zpátky do main_menu() smyčky
             elif action == "quit":
                 pygame.quit()
                 sys.exit()
