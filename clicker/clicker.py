@@ -3,8 +3,8 @@ import pygame, sys
 # Inicializace knihovny Pygame (nutné před použitím jakýchkoliv jejích funkcí)
 pygame.init()
 
-# Vytvoření hlavního okna hry o velikosti 400x400 pixelů
-screen = pygame.display.set_mode((400, 400))
+# Vytvoření hlavního okna hry o velikosti 400x500 pixelů
+screen = pygame.display.set_mode((400, 500))
 
 # Vytvoření fontů pro texty ve hře
 # Velký font pro zobrazení skóre, malý font pro text na tlačítku
@@ -16,10 +16,18 @@ score = 0               # Aktuální počet bodů
 score_per_click = 1     # Kolik bodů hráč získá za jedno kliknutí
 upgrade_cost = 10       # Aktuální cena pro další nákup upgradu
 
+autoclicker_cost = 50   # Cena pro autoklikr
+autoclickers = 0        # Počet zakoupených autoklikrů
+
+# Vytvoření události pro autoklikr (každou sekundu)
+AUTOCLICK_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(AUTOCLICK_EVENT, 1000)
+
 # Vytvoření obdélníků (tlačítek), na které půjde klikat
 # Rect bere argumenty: x pozice, y pozice, šířka, výška
 cube = pygame.Rect(150, 150, 100, 100)           # Hlavní klikací objekt (modrá kostka)
 upgrade_button = pygame.Rect(10, 300, 380, 50)   # Tlačítko pro nákup upgradu
+autoclicker_button = pygame.Rect(10, 360, 380, 50) # Tlačítko pro autoklikr
 
 # Hlavní herní smyčka, která běží neustále dokola
 while True:
@@ -45,6 +53,17 @@ while True:
                         score -= upgrade_cost                   # Odečteme cenu
                         score_per_click += 1                    # Zvýšíme počet bodů za kliknutí
                         upgrade_cost = int(upgrade_cost * 1.5)  # Zvýšíme cenu o 50 % (int zajistí celé číslo)
+                
+                # Zjišťujeme, zda hráč klikl na autoklikr
+                elif autoclicker_button.collidepoint(event.pos):
+                    if score >= autoclicker_cost:
+                        score -= autoclicker_cost
+                        autoclickers += 1
+                        autoclicker_cost = int(autoclicker_cost * 1.5)
+        
+        # Pokud nastane událost autoklikru (každou sekundu)
+        elif event.type == AUTOCLICK_EVENT:
+            score += autoclickers # Přidá body podle počtu autoklikrů
 
     # 1. VYKRESLOVÁNÍ POZADÍ
     screen.fill((30, 30, 30)) # Tmavé pozadí (RGB hodnoty 0-255)
@@ -56,10 +75,17 @@ while True:
     # Vykreslení zeleného tlačítka pro upgrade
     pygame.draw.rect(screen, (50, 200, 50), upgrade_button)
     
+    # Vykreslení oranžového tlačítka pro autoklikr
+    pygame.draw.rect(screen, (200, 100, 50), autoclicker_button)
+    
     # 3. VYKRESLOVÁNÍ TEXTŮ
     # Příprava textu na tlačítko upgradu a jeho vykreslení
     upgrade_text = small_font.render(f"Upgrade (+1/klik) - Cena: {upgrade_cost}", True, (255, 255, 255))
     screen.blit(upgrade_text, (20, 315)) # Zobrazení na souřadnicích (x=20, y=315)
+
+    # Příprava textu pro autoklikr
+    autoclicker_text = small_font.render(f"Autoklikr (+1/s) - Cena: {autoclicker_cost} ({autoclickers}x)", True, (255, 255, 255))
+    screen.blit(autoclicker_text, (20, 375))
     
     # Příprava textu pro aktuální skóre a jeho vykreslení
     score_text = font.render(f"Skóre: {score}", True, (255, 255, 255))
