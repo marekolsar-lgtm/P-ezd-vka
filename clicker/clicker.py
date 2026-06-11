@@ -26,6 +26,10 @@ xp_needed = 10
 xp_per_click = 1
 xp_upgrade_cost = 20
 
+# Proměnné pro kritický zásah
+crit_chance = 0          # Šance na kritický zásah (v procentech)
+crit_upgrade_cost = 100  # Cena pro upgrade kritického zásahu
+
 # Barva kostky
 cube_color = (0, 200, 255)
 
@@ -39,6 +43,7 @@ cube = pygame.Rect(150, 150, 100, 100)           # Hlavní klikací objekt (modr
 upgrade_button = pygame.Rect(10, 300, 380, 50)   # Tlačítko pro nákup upgradu
 autoclicker_button = pygame.Rect(10, 360, 380, 50) # Tlačítko pro autoklikr
 xp_upgrade_button = pygame.Rect(10, 420, 380, 50)  # Tlačítko pro XP upgrade
+crit_upgrade_button = pygame.Rect(10, 480, 380, 50) # Tlačítko pro kritický zásah
 
 # Hlavní herní smyčka, která běží neustále dokola
 while True:
@@ -55,7 +60,11 @@ while True:
             if event.button == 1:
                 # Zjišťujeme, zda pozice myši při kliknutí koliduje s hlavní kostkou
                 if cube.collidepoint(event.pos):
-                    score += score_per_click # Přičteme body podle aktuální síly kliku
+                    click_score = score_per_click
+                    if crit_chance > 0 and random.randint(1, 100) <= crit_chance:
+                        click_score *= 5 # 5x násobič za crit
+                    
+                    score += click_score # Přičteme body
                     xp += xp_per_click       # Přičteme XP
                     
                     if xp >= xp_needed:      # Level up logika
@@ -87,6 +96,13 @@ while True:
                         score -= xp_upgrade_cost
                         xp_per_click += 1
                         xp_upgrade_cost = int(xp_upgrade_cost * 1.5)
+                
+                # Zjišťujeme, zda hráč klikl na kritický zásah
+                elif crit_upgrade_button.collidepoint(event.pos):
+                    if score >= crit_upgrade_cost:
+                        score -= crit_upgrade_cost
+                        crit_chance += 5 # Zvýšíme šanci o 5 %
+                        crit_upgrade_cost = int(crit_upgrade_cost * 1.6)
         
         # Pokud nastane událost autoklikru (každou sekundu)
         elif event.type == AUTOCLICK_EVENT:
@@ -108,6 +124,9 @@ while True:
     # Vykreslení fialového tlačítka pro XP upgrade
     pygame.draw.rect(screen, (150, 50, 200), xp_upgrade_button)
     
+    # Vykreslení červeného tlačítka pro kritický zásah
+    pygame.draw.rect(screen, (220, 20, 60), crit_upgrade_button)
+    
     # 3. VYKRESLOVÁNÍ TEXTŮ
     # Příprava textu na tlačítko upgradu a jeho vykreslení
     upgrade_text = small_font.render(f"Upgrade (+1/klik) - Cena: {upgrade_cost}", True, (255, 255, 255))
@@ -120,6 +139,10 @@ while True:
     # Příprava textu pro XP upgrade
     xp_upgrade_text = small_font.render(f"XP Upgrade (+1 XP/klik) - Cena: {xp_upgrade_cost}", True, (255, 255, 255))
     screen.blit(xp_upgrade_text, (20, 435))
+    
+    # Příprava textu pro kritický zásah
+    crit_upgrade_text = small_font.render(f"Crit Chance (+5%) - Cena: {crit_upgrade_cost} ({crit_chance}%)", True, (255, 255, 255))
+    screen.blit(crit_upgrade_text, (20, 495))
     
     # Příprava textu pro aktuální skóre a jeho vykreslení
     score_text = font.render(f"Skóre: {score}", True, (255, 255, 255))
